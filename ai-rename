@@ -184,12 +184,6 @@ import requests
 import json
 import re
 
-# Color codes for output
-RED = '\033[0;31m'
-GREEN = '\033[0;32m'
-YELLOW = '\033[1;33m'
-BLUE = '\033[0;34m'
-NC = '\033[0m'  # No Color
 
 LANGUAGE = 'eng'
 KEEP_ORIGINAL = 1
@@ -257,14 +251,14 @@ for file_name in os.listdir(DIR):
     file_path = os.path.join(DIR, file_name)
 
     if os.path.isfile(file_path) and file_path.lower().endswith(('.pdf', '.jpg', '.png')):
-        print(f"{BLUE}{file_path}{NC}")
+        print(f"{file_path}")
 
-        print(f"{YELLOW}Starting OCR recognition ...{NC}")
+        print("Starting OCR recognition ...")
         ocr_text = perform_ocr(file_path)
 
         if ocr_text:
-            print(f"{GREEN}OCR successful{NC}")
-            print(f"{YELLOW}Starting AI request ...{NC}")
+            print("OCR successful")
+            print("Starting AI request ...")
 
             ai_generated_filename = generate_filename(ocr_text)
             if ai_generated_filename:
@@ -277,13 +271,13 @@ for file_name in os.listdir(DIR):
                     if KEEP_ORIGINAL:
                         shutil.copy2(file_path, new_filepath)
                         shutil.move(file_path, os.path.join(ORIG_DIR, file_name))
-                        print(f"{GREEN}'{file_path}' was successfully renamed to '{new_filepath}' and copied{NC}")
+                        print(f"'{file_path}' was successfully renamed to '{new_filepath}' and copied")
                     else:
                         shutil.move(file_path, new_filepath)
-                        print(f"{GREEN}'{file_path}' was successfully renamed to '{new_filepath}' and moved{NC}")
+                        print(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
                 else:
-                    print(f"{RED}Resulting filename is not between 15 - 100 characters{NC}")
+                    print("Resulting filename is not between 15 - 100 characters")
             else:
-                print(f"{RED}No valid filename could be extracted from the AI response.{NC}")
+                print("No valid filename could be extracted from the AI response.")
         else:
-            print(f"{RED}OCR processing of '{file_path}' failed or no text recognized.{NC}")
+            print(f"OCR processing of '{file_path}' failed or no text recognized.")
