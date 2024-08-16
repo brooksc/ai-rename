@@ -25,8 +25,28 @@ if args.debug:
     logging.getLogger().setLevel(logging.DEBUG)
 
 # Configuration variables
-LANGUAGE = 'eng'
-ORIG_SUBDIR = "orig"
+def read_config():
+    config = {}
+    if os.path.exists(os.path.expanduser('~/.ai-rename')):
+        with open(os.path.expanduser('~/.ai-rename'), 'r') as f:
+            for line in f:
+                key, value = line.strip().split('=')
+                config[key] = value
+    return config
+
+def write_config(config):
+    with open(os.path.expanduser('~/.ai-rename'), 'w') as f:
+        for key, value in config.items():
+            f.write(f"{key}={value}\n")
+
+config = read_config()
+LANGUAGE = config.get('LANGUAGE', 'eng')
+ORIG_SUBDIR = config.get('ORIG_SUBDIR', "orig")
+
+if not config:
+    LANGUAGE = input(f"Enter the language for OCR (default: {LANGUAGE}): ") or LANGUAGE
+    ORIG_SUBDIR = input(f"Enter the original subdirectory (default: {ORIG_SUBDIR}): ") or ORIG_SUBDIR
+    write_config({'LANGUAGE': LANGUAGE, 'ORIG_SUBDIR': ORIG_SUBDIR})
 
 DIR = args.directory
 KEEP_ORIGINAL = args.keep_original
