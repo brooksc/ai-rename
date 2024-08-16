@@ -133,7 +133,7 @@ def clean_filename(filename):
     content_length = len(cleaned_content)
 
     # Remove any existing file extension from the cleaned content
-    cleaned_content = os.path.splitext(cleaned_content)[0]
+    cleaned_content = os.path.splitext(cleaned_content)[0].strip()
 
     if 15 <= content_length <= 100:
         return cleaned_content
@@ -159,7 +159,7 @@ def rename_pdf(file_path, file_name):
             cleaned_filename = clean_filename(ai_generated_filename)
             if cleaned_filename:
                 file_extension = os.path.splitext(file_name)[1]
-                new_filename = f"{cleaned_filename}{file_extension}"
+                new_filename = f"{cleaned_filename.strip()}{file_extension}"
                 new_filepath = os.path.join(DONE_DIR, new_filename)
                 counter = 1
                 while os.path.exists(new_filepath):
