@@ -114,58 +114,68 @@ def clean_filename(filename):
     return None
 
 
+# Function to process PDF files
+def rename_pdf(file_path, file_name):
+    logging.info(f"Processing file: {file_path}")
+
+    logging.info("Starting OCR recognition ...")
+    ocr_text = perform_ocr(file_path)
+
+    if ocr_text.strip():
+        logging.info("OCR successful")
+        logging.debug(f"OCR text: {ocr_text}")
+        logging.info("Starting AI request ...")
+
+        ai_generated_filename, justification = generate_filename(ocr_text)
+        if ai_generated_filename:
+            logging.debug(f"AI generated filename: {ai_generated_filename}")
+            logging.debug(f"Justification: {justification}")
+            cleaned_filename = clean_filename(ai_generated_filename)
+            if cleaned_filename:
+                file_extension = os.path.splitext(file_name)[1]
+                new_filename = f"{cleaned_filename}{file_extension}"
+                new_filepath = os.path.join(DONE_DIR, new_filename)
+                counter = 1
+                while os.path.exists(new_filepath):
+                    base_name, ext = os.path.splitext(new_filename)
+                    new_filename = f"{base_name}_{counter}{ext}"
+                    new_filepath = os.path.join(DONE_DIR, new_filename)
+                    counter += 1
+
+                if KEEP_ORIGINAL:
+                    shutil.copy2(file_path, new_filepath)
+                    shutil.move(file_path, os.path.join(ORIG_DIR, file_name))
+                    logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}' and copied")
+                else:
+                    shutil.move(file_path, new_filepath)
+                    logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
+            else:
+                logging.error("Resulting filename is not between 15 - 100 characters")
+        else:
+            logging.error("No valid filename could be extracted from the AI response.")
+    else:
+        logging.error(f"OCR processing of '{file_path}' failed or no text recognized. Keeping original filename.")
+        new_filepath = os.path.join(DONE_DIR, file_name)
+        if KEEP_ORIGINAL:
+            shutil.copy2(file_path, new_filepath)
+            shutil.move(file_path, os.path.join(ORIG_DIR, file_name))
+            logging.info(f"'{file_path}' was moved to '{new_filepath}' with original filename")
+        else:
+            shutil.move(file_path, new_filepath)
+            logging.info(f"'{file_path}' was moved to '{new_filepath}' with original filename")
+
+# Lookup table for file extensions to their respective processing functions
+extension_to_function = {
+    '.pdf': rename_pdf
+}
+
 # Process each file in the directory
 for file_name in os.listdir(DIR):
     file_path = os.path.join(DIR, file_name)
+    file_extension = os.path.splitext(file_name)[1].lower()
 
-    if os.path.isfile(file_path) and file_path.lower().endswith('.pdf'):
-        logging.info(f"Processing file: {file_path}")
-
-        logging.info("Starting OCR recognition ...")
-        ocr_text = perform_ocr(file_path)
-
-        if ocr_text.strip():
-            logging.info("OCR successful")
-            logging.debug(f"OCR text: {ocr_text}")
-            logging.info("Starting AI request ...")
-
-            ai_generated_filename, justification = generate_filename(ocr_text)
-            if ai_generated_filename:
-                logging.debug(f"AI generated filename: {ai_generated_filename}")
-                logging.debug(f"Justification: {justification}")
-                cleaned_filename = clean_filename(ai_generated_filename)
-                if cleaned_filename:
-                    file_extension = os.path.splitext(file_name)[1]
-                    new_filename = f"{cleaned_filename}{file_extension}"
-                    new_filepath = os.path.join(DONE_DIR, new_filename)
-                    counter = 1
-                    while os.path.exists(new_filepath):
-                        base_name, ext = os.path.splitext(new_filename)
-                        new_filename = f"{base_name}_{counter}{ext}"
-                        new_filepath = os.path.join(DONE_DIR, new_filename)
-                        counter += 1
-
-                    if KEEP_ORIGINAL:
-                        shutil.copy2(file_path, new_filepath)
-                        shutil.move(file_path, os.path.join(ORIG_DIR, file_name))
-                        logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}' and copied")
-                    else:
-                        shutil.move(file_path, new_filepath)
-                        logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
-                else:
-                    logging.error("Resulting filename is not between 15 - 100 characters")
-            else:
-                logging.error("No valid filename could be extracted from the AI response.")
-        else:
-            logging.error(f"OCR processing of '{file_path}' failed or no text recognized. Keeping original filename.")
-            new_filepath = os.path.join(DONE_DIR, file_name)
-            if KEEP_ORIGINAL:
-                shutil.copy2(file_path, new_filepath)
-                shutil.move(file_path, os.path.join(ORIG_DIR, file_name))
-                logging.info(f"'{file_path}' was moved to '{new_filepath}' with original filename")
-            else:
-                shutil.move(file_path, new_filepath)
-                logging.info(f"'{file_path}' was moved to '{new_filepath}' with original filename")
+    if os.path.isfile(file_path) and file_extension in extension_to_function:
+        extension_to_function[file_extension](file_path, file_name)
 import os
 import sys
 import shutil
