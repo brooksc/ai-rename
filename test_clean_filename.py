@@ -1,5 +1,5 @@
 import unittest
-from ai-rename import clean_filename
+from ai_rename import clean_filename
 
 class TestCleanFilename(unittest.TestCase):
 
