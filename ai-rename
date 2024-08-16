@@ -33,6 +33,35 @@ if not os.path.isdir(DIR):
     logging.error(f"The directory '{DIR}' does not exist.")
     sys.exit(1)
 
+# Function to read from the configuration file
+def read_config():
+    config = {}
+    config_path = os.path.expanduser('~/.ai-rename')
+    if os.path.exists(config_path):
+        with open(config_path, 'r') as f:
+            for line in f:
+                key, value = line.strip().split('=')
+                config[key] = value
+    return config
+
+# Function to write to the configuration file
+def write_config(config):
+    config_path = os.path.expanduser('~/.ai-rename')
+    with open(config_path, 'w') as f:
+        for key, value in config.items():
+            f.write(f"{key}={value}\n")
+
+# Read the configuration file
+config = read_config()
+LANGUAGE = config.get('LANGUAGE', 'eng')
+ORIG_SUBDIR = config.get('ORIG_SUBDIR', "orig")
+
+# If the configuration file does not exist, prompt the user to enter the settings
+if not config:
+    LANGUAGE = input(f"Enter the language for OCR (default: {LANGUAGE}): ") or LANGUAGE
+    ORIG_SUBDIR = input(f"Enter the original subdirectory (default: {ORIG_SUBDIR}): ") or ORIG_SUBDIR
+    write_config({'LANGUAGE': LANGUAGE, 'ORIG_SUBDIR': ORIG_SUBDIR})
+
 # Create a 'done' directory within the provided directory to store processed files
 DONE_DIR = os.path.join(DIR, 'done')
 os.makedirs(DONE_DIR, exist_ok=True)
