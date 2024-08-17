@@ -1,8 +1,9 @@
+#!/usr/bin/env python3
+
 import unittest
 from ai_renamer import clean_filename
 
 class TestCleanFilename(unittest.TestCase):
-
     def test_clean_filename(self):
         # Test cases with valid filenames
         self.assertEqual(clean_filename("ValidFilename"), "ValidFilename")
