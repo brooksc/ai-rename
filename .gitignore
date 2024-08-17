@@ -164,6 +164,5 @@ cython_debug/
 .git
 .gitignore
 .idea
-test/
-test.1/
+pdfs/
 .aider*
