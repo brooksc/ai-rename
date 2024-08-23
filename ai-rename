@@ -4,11 +4,12 @@ import logging
 import os
 import shutil
 import sys
-import openai  # Assuming you have the openai library installed
-import progressbar
+# import openai  # Assuming you have the openai library installed
+# import progressbar
 import requests  # Add this import for HTTP requests
 
-from ai_rename import read_config, write_config, clean_filename, generate_filename, perform_ocr, rename_pdf
+from ai_rename import read_config, write_config, clean_filename, generate_filename, perform_ocr
+# , rename_pdf)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -55,7 +56,7 @@ os.makedirs(ORIG_DIR, exist_ok=True)
 
 # Lookup table for file extensions to their respective processing functions
 extension_to_function = {
-    '.pdf': rename_pdf
+    # '.pdf': rename_pdf
 }
 
 # Process each file in the directory
@@ -68,7 +69,7 @@ for file_name in os.listdir(DIR):
 
 # Lookup table for file extensions to their respective processing functions
 extension_to_function = {
-    '.pdf': rename_pdf
+    # '.pdf': rename_pdf
 }
 
 # Process each file in the directory
