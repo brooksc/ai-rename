@@ -124,8 +124,11 @@ for file_name in os.listdir(DIR):
                             "max_tokens": 100
                         })
                         if response.status_code == 200:
-                            summary_data = response.json()
-                            summary = summary_data.get('response', '').strip()
+                            try:
+                                summary_data = response.json()
+                                summary = summary_data.get('response', '').strip()
+                            except requests.exceptions.JSONDecodeError:
+                                summary = None
                         else:
                             summary = None
                         if summary:
