@@ -92,7 +92,7 @@ for file_name in os.listdir(DIR):
         print(f"{file_path}")
 
         print("Starting OCR recognition ...")
-        ocr_text = perform_ocr(file_path)
+        ocr_text = perform_ocr(file_path, LANGUAGE)
 
         if ocr_text:
             print("OCR successful")

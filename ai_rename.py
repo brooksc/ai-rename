@@ -8,7 +8,7 @@ import requests
 
 
 # Function to perform OCR on the file
-def perform_ocr(file_path):
+def perform_ocr(file_path, LANGUAGE):
     ocr_text = ""
     if file_path.lower().endswith('.pdf'):
         # Convert PDF to PNG for OCR processing
