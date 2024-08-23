@@ -56,3 +56,33 @@ def clean_filename(filename):
     return None
 
 
+import os
+import json
+
+def read_config():
+    config_file = 'config.json'
+    if os.path.exists(config_file):
+        with open(config_file, 'r') as f:
+            return json.load(f)
+    return {}
+
+def write_config(config):
+    config_file = 'config.json'
+    with open(config_file, 'w') as f:
+        json.dump(config, f, indent=4)
+
+def clean_filename(filename):
+    # Implement the logic to clean the filename
+    return filename
+
+def generate_filename(ocr_text):
+    # Implement the logic to generate a filename from OCR text
+    return "generated_filename"
+
+def perform_ocr(file_path):
+    # Implement the logic to perform OCR on the file
+    return "OCR text"
+
+def rename_pdf(file_path, file_name, DONE_DIR, ORIG_DIR, KEEP_ORIGINAL, LANGUAGE):
+    # Implement the logic to rename PDF files
+    pass
