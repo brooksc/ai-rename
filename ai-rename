@@ -4,6 +4,7 @@ import logging
 import os
 import shutil
 import sys
+from summarizer import summarize  # Assuming you have a summarizer library installed
 
 from ai_rename import *
 
@@ -102,6 +103,17 @@ for file_name in os.listdir(DIR):
                     else:
                         shutil.move(file_path, new_filepath)
                         print(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
+
+                    # Generate summary
+                    summary = summarize(ocr_text)
+                    if summary:
+                        summary_filename = f"{cleaned_filename}_summary.txt"
+                        summary_filepath = os.path.join(DONE_DIR, summary_filename)
+                        with open(summary_filepath, 'w') as f:
+                            f.write(summary)
+                        print(f"Summary saved to '{summary_filepath}'")
+                    else:
+                        print("Failed to generate summary.")
                 else:
                     print("Resulting filename is not between 15 - 100 characters")
             else:
