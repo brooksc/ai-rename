@@ -15,6 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Initialize argument parser
 parser = argparse.ArgumentParser(description='Process files in a directory using OCR and AI to generate filenames.')
 parser.add_argument('directory', type=str, help='The directory containing files to process.')
+parser.add_argument('-s', '--summarize', action='store_true', help='Enable summarization of the OCR text.')
 parser.add_argument('-d', '--debug', action='store_true', help='Enable debug logging.')
 parser.add_argument('--keep-original', type=bool, default=True, help='Preserve the original file after renaming. Default is True.')
 
@@ -114,21 +115,22 @@ for file_name in os.listdir(DIR):
                         print(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
 
                     # Generate summary
-                    # Use LLM for summarization
-                    response = openai.Completion.create(
-                        engine="text-davinci-003",
-                        prompt=f"Summarize the following text: {ocr_text}",
-                        max_tokens=100
-                    )
-                    summary = response.choices[0].text.strip()
-                    if summary:
-                        summary_filename = f"{cleaned_filename}_summary.txt"
-                        summary_filepath = os.path.join(DONE_DIR, summary_filename)
-                        with open(summary_filepath, 'w') as f:
-                            f.write(summary)
-                        print(f"Summary saved to '{summary_filepath}'")
-                    else:
-                        print("Failed to generate summary.")
+                    if args.summarize:
+                        # Use LLM for summarization
+                        response = openai.Completion.create(
+                            engine="text-davinci-003",
+                            prompt=f"Summarize the following text: {ocr_text}",
+                            max_tokens=100
+                        )
+                        summary = response.choices[0].text.strip()
+                        if summary:
+                            summary_filename = f"{cleaned_filename}_summary.txt"
+                            summary_filepath = os.path.join(DONE_DIR, summary_filename)
+                            with open(summary_filepath, 'w') as f:
+                                f.write(summary)
+                            print(f"Summary saved to '{summary_filepath}'")
+                        else:
+                            print("Failed to generate summary.")
                 else:
                     print("Resulting filename is not between 15 - 100 characters")
             else:
