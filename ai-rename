@@ -4,7 +4,7 @@ import logging
 import os
 import shutil
 import sys
-from summarizer import summarize  # Assuming you have a summarizer library installed
+import openai  # Assuming you have the openai library installed
 import progressbar
 
 from ai_rename import *
@@ -75,10 +75,11 @@ for file_name in os.listdir(DIR):
     if os.path.isfile(file_path) and file_extension in extension_to_function:
         extension_to_function[file_extension](file_path, file_name)
 
-# Initialize progress bar
-total_files = sum(1 for file_name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, file_name)) and file_name.lower().endswith(('.pdf', '.jpg', '.png')))
-bar = progressbar.ProgressBar(maxval=total_files, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
-bar.start()
+if not args.debug:
+    # Initialize progress bar
+    total_files = sum(1 for file_name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, file_name)) and file_name.lower().endswith(('.pdf', '.jpg', '.png')))
+    bar = progressbar.ProgressBar(maxval=total_files, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+    bar.start()
 
 file_count = 0
 
@@ -113,7 +114,13 @@ for file_name in os.listdir(DIR):
                         print(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
 
                     # Generate summary
-                    summary = summarize(ocr_text)
+                    # Use LLM for summarization
+                    response = openai.Completion.create(
+                        engine="text-davinci-003",
+                        prompt=f"Summarize the following text: {ocr_text}",
+                        max_tokens=100
+                    )
+                    summary = response.choices[0].text.strip()
                     if summary:
                         summary_filename = f"{cleaned_filename}_summary.txt"
                         summary_filepath = os.path.join(DONE_DIR, summary_filename)
@@ -129,7 +136,9 @@ for file_name in os.listdir(DIR):
         else:
             print(f"OCR processing of '{file_path}' failed or no text recognized.")
 
-        file_count += 1
-        bar.update(file_count)
+        if not args.debug:
+            file_count += 1
+            bar.update(file_count)
 
-bar.finish()
+    if not args.debug:
+        bar.finish()
