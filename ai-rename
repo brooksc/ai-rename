@@ -6,6 +6,7 @@ import shutil
 import sys
 import openai  # Assuming you have the openai library installed
 import progressbar
+import requests  # Add this import for HTTP requests
 
 from ai_rename import read_config, write_config, clean_filename, generate_filename, perform_ocr, rename_pdf
 
