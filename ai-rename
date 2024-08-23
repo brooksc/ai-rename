@@ -17,6 +17,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 parser = argparse.ArgumentParser(description='Process files in a directory using OCR and AI to generate filenames.')
 parser.add_argument('directory', type=str, help='The directory containing files to process.')
 parser.add_argument('-s', '--summarize', action='store_true', help='Enable summarization of the OCR text.')
+parser.add_argument('-m', '--move', action='store_true', help='Move the files after processing.')
 parser.add_argument('-d', '--debug', action='store_true', help='Enable debug logging.')
 parser.add_argument('--keep-original', type=bool, default=True, help='Preserve the original file after renaming. Default is True.')
 
@@ -107,13 +108,13 @@ for file_name in os.listdir(DIR):
                     new_filename = f"{cleaned_filename}{file_extension}"
                     new_filepath = os.path.join(DONE_DIR, new_filename)
 
-                    if KEEP_ORIGINAL:
+                    if args.move:
+                        shutil.move(file_path, new_filepath)
+                        print(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
+                    elif KEEP_ORIGINAL:
                         shutil.copy2(file_path, new_filepath)
                         shutil.move(file_path, os.path.join(ORIG_DIR, file_name))
                         print(f"'{file_path}' was successfully renamed to '{new_filepath}' and copied")
-                    else:
-                        shutil.move(file_path, new_filepath)
-                        print(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
 
                     # Generate summary
                     if args.summarize:
