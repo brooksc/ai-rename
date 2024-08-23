@@ -34,8 +34,13 @@ KEEP_ORIGINAL = args.keep_original
 
 # Check if the provided argument is a valid directory
 if not os.path.isdir(DIR):
-    logging.error(f"The directory '{DIR}' does not exist.")
-    sys.exit(1)
+    create_dir = input(f"The directory '{DIR}' does not exist. Do you want to create it? (y/n): ")
+    if create_dir.lower() == 'y':
+        os.makedirs(DIR)
+        logging.info(f"Directory '{DIR}' created.")
+    else:
+        logging.error(f"The directory '{DIR}' does not exist.")
+        sys.exit(1)
 
 # Read the configuration file
 config = read_config()
