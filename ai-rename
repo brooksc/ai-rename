@@ -5,6 +5,7 @@ import os
 import shutil
 import sys
 from summarizer import summarize  # Assuming you have a summarizer library installed
+import progressbar
 
 from ai_rename import *
 
@@ -74,6 +75,13 @@ for file_name in os.listdir(DIR):
     if os.path.isfile(file_path) and file_extension in extension_to_function:
         extension_to_function[file_extension](file_path, file_name)
 
+# Initialize progress bar
+total_files = sum(1 for file_name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, file_name)) and file_name.lower().endswith(('.pdf', '.jpg', '.png')))
+bar = progressbar.ProgressBar(maxval=total_files, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+bar.start()
+
+file_count = 0
+
 # Process each file in the directory
 for file_name in os.listdir(DIR):
     file_path = os.path.join(DIR, file_name)
@@ -120,3 +128,8 @@ for file_name in os.listdir(DIR):
                 print("No valid filename could be extracted from the AI response.")
         else:
             print(f"OCR processing of '{file_path}' failed or no text recognized.")
+
+        file_count += 1
+        bar.update(file_count)
+
+bar.finish()
