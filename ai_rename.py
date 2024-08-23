@@ -79,7 +79,7 @@ def generate_filename(ocr_text):
     # Implement the logic to generate a filename from OCR text
     return "generated_filename"
 
-def perform_ocr(file_path):
+def perform_ocr(file_path, LANGUAGE):
     # Implement the logic to perform OCR on the file
     return "OCR text"
 
