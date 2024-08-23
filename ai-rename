@@ -5,7 +5,7 @@ import os
 import shutil
 import sys
 
-from ai_renamer import read_config, write_config, rename_pdf
+from ai_rename import *
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
