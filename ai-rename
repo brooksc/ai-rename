@@ -117,12 +117,16 @@ for file_name in os.listdir(DIR):
                     # Generate summary
                     if args.summarize:
                         # Use LLM for summarization
-                        response = openai.Completion.create(
-                            engine="text-davinci-003",
-                            prompt=f"Summarize the following text: {ocr_text}",
-                            max_tokens=100
-                        )
-                        summary = response.choices[0].text.strip()
+                        response = requests.post('http://localhost:11434/api/generate', json={
+                            "model": "llama3.1",
+                            "prompt": f"Summarize the following text: {ocr_text}",
+                            "max_tokens": 100
+                        })
+                        if response.status_code == 200:
+                            summary_data = response.json()
+                            summary = summary_data.get('response', '').strip()
+                        else:
+                            summary = None
                         if summary:
                             summary_filename = f"{cleaned_filename}_summary.txt"
                             summary_filepath = os.path.join(DONE_DIR, summary_filename)
