@@ -162,11 +162,11 @@ for file_name in os.listdir(DIR):
     if os.path.isfile(file_path) and file_extension in extension_to_function:
         extension_to_function[file_extension](file_path, file_name, DONE_DIR, ORIG_DIR, KEEP_ORIGINAL, LANGUAGE)
 
-if not args.debug:
-    # Initialize progress bar
-    total_files = sum(1 for file_name in os.listdir(DIR) if
-                      os.path.isfile(os.path.join(DIR, file_name)) and file_name.lower().endswith(
-                          ('.pdf', '.jpg', '.png')))
+# Initialize progress bar
+total_files = sum(1 for file_name in os.listdir(DIR) if
+                  os.path.isfile(os.path.join(DIR, file_name)) and file_name.lower().endswith(
+                      ('.pdf', '.jpg', '.png')))
+if total_files > 0:
     bar = progressbar.ProgressBar(maxval=total_files,
                                   widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
     bar.start()
@@ -243,9 +243,9 @@ for file_name in os.listdir(DIR):
         else:
             print(f"OCR processing of '{file_path}' failed or no text recognized.")
 
-        if not args.debug:
-            file_count += 1
+        if total_files > 0:
             bar.update(file_count)
+        file_count += 1
 
-    if not args.debug:
-        bar.finish()
+if total_files > 0:
+    bar.finish()
