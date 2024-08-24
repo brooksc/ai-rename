@@ -47,8 +47,12 @@ def generate_filename(ocr_text):
     return None
 
 def call_llm(prompt):
-    response = requests.post('http://localhost:11434/api/generate', json={"model": "llama3.1",
+    response = requests.post('http://localhost:11434/api/generate',
+                             json={"model": "llama3.1",
+                                   "stream": False,
         "prompt": prompt, "max_tokens": 100})
+    logging.debug(f"prompt:'{prompt}'")
+    logging.debug(f"response={json.dumps(response.text)}")
     if response.status_code == 200:
         try:
             response_data = response.json()
@@ -211,7 +215,23 @@ for file_name in os.listdir(DIR):
         if ocr_text:
             if args.debug:
                 print("OCR successful")
-                print("Starting AI request ...")
+
+            # Generate summary
+            if args.summarize:
+                # Use LLM for summarization
+                summarization_prompt = f"{config['prompts']['summarization']}:{ocr_text}"
+                logging.debug(f"Summarization prompt: {summarization_prompt}")
+                summary = call_llm(summarization_prompt)
+                if summary:
+                    logging.debug(f"Summarization response: {summary}")
+                if summary:
+                    summary_filename = f"{cleaned_filename}_summary.txt"
+                    summary_filepath = os.path.join(DONE_DIR, summary_filename)
+                    with open(summary_filepath, 'w') as f:
+                        f.write(summary)
+                    print(f"Summary saved to '{summary_filepath}'")
+                else:
+                    print("Failed to generate summary.")
 
             ai_generated_filename = generate_filename(ocr_text)
             if ai_generated_filename:
@@ -230,28 +250,11 @@ for file_name in os.listdir(DIR):
                             shutil.move(file_path, os.path.join(ORIG_DIR, file_name))
                             print(f"'{file_path}' was successfully renamed to '{new_filepath}' and copied")
 
-                    # Generate summary
-                    if args.summarize:
-                        # Use LLM for summarization
-                        summarization_prompt = config['prompts']['summarization']
-                        logging.debug(f"Summarization prompt: {summarization_prompt}")
-                        summary = call_llm(summarization_prompt)
-                        if summary:
-                            logging.debug(f"Summarization response: {summary}")
-                        if summary:
-                            summary_filename = f"{cleaned_filename}_summary.txt"
-                            summary_filepath = os.path.join(DONE_DIR, summary_filename)
-                            with open(summary_filepath, 'w') as f:
-                                f.write(summary)
-                            print(f"Summary saved to '{summary_filepath}'")
-                        else:
-                            print("Failed to generate summary.")
+
                 else:
                     if args.debug:
                         print("Resulting filename is not between 15 - 100 characters")
-            else:
-                if args.debug:
-                    print("No valid filename could be extracted from the AI response.")
+
         else:
             if args.debug:
                 print(f"OCR processing of '{file_path}' failed or no text recognized.")
