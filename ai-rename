@@ -213,16 +213,21 @@ for file_name in os.listdir(DIR):
                     if args.summarize:
                         # Use LLM for summarization
                         summarization_prompt = config['prompts']['summarization']
+                        logging.debug(f"Summarization prompt: {summarization_prompt}")
                         response = requests.post('http://localhost:11434/api/generate', json={"model": "llama3.1",
                             "prompt": summarization_prompt, "max_tokens": 100})
+                        logging.debug(f"Summarization response status code: {response.status_code}")
                         if response.status_code == 200:
                             try:
                                 summary_data = response.json()
                                 summary = summary_data.get('response', '').strip()
+                                logging.debug(f"Summarization response: {summary}")
                             except requests.exceptions.JSONDecodeError:
                                 summary = None
+                                logging.debug("Failed to decode JSON response for summarization.")
                         else:
                             summary = None
+                            logging.debug("Failed to generate summary due to non-200 status code.")
                         if summary:
                             summary_filename = f"{cleaned_filename}_summary.txt"
                             summary_filepath = os.path.join(DONE_DIR, summary_filename)
