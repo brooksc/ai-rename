@@ -33,10 +33,10 @@ def perform_ocr(file_path, LANGUAGE):
 
 # Function to generate a filename based on OCR content using AI
 def generate_filename(ocr_text):
-    payload = {"messages": [{"role": "system",
-                             "content": "Generate a suitable filename for the following file content that briefly summarizes the content, using no more than 120 characters."},
-        {"role": "user", "content": f"Here is the file content: {ocr_text}"}], "temperature": 0, "max_tokens": -1,
-        "stream": False}
+    filename_prompt = config['prompts']['filename_generation']
+    payload = {"messages": [{"role": "system", "content": filename_prompt},
+                            {"role": "user", "content": f"Here is the file content: {ocr_text}"}],
+               "temperature": 0, "max_tokens": -1, "stream": False}
 
     response = requests.post('http://localhost:11434/v1/chat/completions', headers={"Content-Type": "application/json"},
                              data=json.dumps(payload))
@@ -212,8 +212,9 @@ for file_name in os.listdir(DIR):
                     # Generate summary
                     if args.summarize:
                         # Use LLM for summarization
+                        summarization_prompt = config['prompts']['summarization']
                         response = requests.post('http://localhost:11434/api/generate', json={"model": "llama3.1",
-                            "prompt": f"Summarize the following text: {ocr_text}", "max_tokens": 100})
+                            "prompt": summarization_prompt, "max_tokens": 100})
                         if response.status_code == 200:
                             try:
                                 summary_data = response.json()
