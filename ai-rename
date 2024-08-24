@@ -218,20 +218,9 @@ for file_name in os.listdir(DIR):
                         # Use LLM for summarization
                         summarization_prompt = config['prompts']['summarization']
                         logging.debug(f"Summarization prompt: {summarization_prompt}")
-                        response = requests.post('http://localhost:11434/api/generate', json={"model": "llama3.1",
-                            "prompt": summarization_prompt, "max_tokens": 100})
-                        logging.debug(f"Summarization response status code: {response.status_code}")
-                        if response.status_code == 200:
-                            try:
-                                summary_data = response.json()
-                                summary = summary_data.get('response', '').strip()
-                                logging.debug(f"Summarization response: {summary}")
-                            except requests.exceptions.JSONDecodeError:
-                                summary = None
-                                logging.debug("Failed to decode JSON response for summarization.")
-                        else:
-                            summary = None
-                            logging.debug("Failed to generate summary due to non-200 status code.")
+                        summary = call_llm(summarization_prompt)
+                        if summary:
+                            logging.debug(f"Summarization response: {summary}")
                         if summary:
                             summary_filename = f"{cleaned_filename}_summary.txt"
                             summary_filepath = os.path.join(DONE_DIR, summary_filename)
@@ -256,3 +245,16 @@ for file_name in os.listdir(DIR):
 
 if total_files > 0:
     bar.finish()
+def call_llm(prompt):
+    response = requests.post('http://localhost:11434/api/generate', json={"model": "llama3.1",
+        "prompt": prompt, "max_tokens": 100})
+    if response.status_code == 200:
+        try:
+            response_data = response.json()
+            return response_data.get('response', '').strip()
+        except requests.exceptions.JSONDecodeError:
+            logging.debug("Failed to decode JSON response from LLM.")
+            return None
+    else:
+        logging.debug(f"Failed to call LLM due to non-200 status code: {response.status_code}")
+        return None
