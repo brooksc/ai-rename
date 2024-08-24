@@ -69,9 +69,19 @@ def clean_filename(filename):
         return cleaned_content
     return None
 
-def rename_pdf(fn):
-    # TODO: implement this function
-    pass
+def rename_pdf(file_path, file_name, DONE_DIR, ORIG_DIR, KEEP_ORIGINAL, new_filename):
+    new_filepath = os.path.join(DONE_DIR, new_filename)
+    
+    if args.move:
+        shutil.move(file_path, new_filepath)
+        print(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
+    elif KEEP_ORIGINAL:
+        shutil.copy2(file_path, new_filepath)
+        shutil.move(file_path, os.path.join(ORIG_DIR, file_name))
+        print(f"'{file_path}' was successfully renamed to '{new_filepath}' and copied")
+    else:
+        os.rename(file_path, new_filepath)
+        print(f"'{file_path}' was successfully renamed to '{new_filepath}'")
 
 def read_config():
     config_file = 'config.json'
