@@ -225,7 +225,7 @@ for file_name in os.listdir(DIR):
                 if summary:
                     logging.debug(f"Summarization response: {summary}")
                 if summary:
-                    summary_filename = f"{cleaned_filename}_summary.txt"
+                    summary_filename = f"{cleaned_filename if 'cleaned_filename' in locals() else os.path.splitext(file_name)[0]}_summary.txt"
                     summary_filepath = os.path.join(DONE_DIR, summary_filename)
                     with open(summary_filepath, 'w') as f:
                         f.write(summary)
