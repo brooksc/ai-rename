@@ -178,20 +178,24 @@ for file_name in os.listdir(DIR):
     file_path = os.path.join(DIR, file_name)
 
     if os.path.isfile(file_path) and file_path.lower().endswith(('.pdf', '.jpg', '.png')):
-        print(f"{file_path}")
+        if args.debug:
+            print(f"{file_path}")
 
-        print("Starting OCR recognition ...")
+        if args.debug:
+            print("Starting OCR recognition ...")
         ocr_text = perform_ocr(file_path, LANGUAGE)
         if args.keep_ocr_output:
             ocr_output_filename = f"{os.path.splitext(file_name)[0]}_ocr_output.txt"
             ocr_output_filepath = os.path.join(DONE_DIR, ocr_output_filename)
             with open(ocr_output_filepath, 'w') as f:
                 f.write(ocr_text)
-            print(f"OCR output saved to '{ocr_output_filepath}'")
+            if args.debug:
+                print(f"OCR output saved to '{ocr_output_filepath}'")
 
         if ocr_text:
-            print("OCR successful")
-            print("Starting AI request ...")
+            if args.debug:
+                print("OCR successful")
+                print("Starting AI request ...")
 
             ai_generated_filename = generate_filename(ocr_text)
             if ai_generated_filename:
@@ -237,11 +241,14 @@ for file_name in os.listdir(DIR):
                         else:
                             print("Failed to generate summary.")
                 else:
-                    print("Resulting filename is not between 15 - 100 characters")
+                    if args.debug:
+                        print("Resulting filename is not between 15 - 100 characters")
             else:
-                print("No valid filename could be extracted from the AI response.")
+                if args.debug:
+                    print("No valid filename could be extracted from the AI response.")
         else:
-            print(f"OCR processing of '{file_path}' failed or no text recognized.")
+            if args.debug:
+                print(f"OCR processing of '{file_path}' failed or no text recognized.")
 
         if total_files > 0:
             bar.update(file_count)
