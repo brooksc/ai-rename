@@ -108,6 +108,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Initialize argument parser
 parser = argparse.ArgumentParser(description='Process files in a directory using OCR and AI to generate filenames.')
 parser.add_argument('directory', type=str, help='The directory containing files to process.')
+parser.add_argument('-r', '--rename', action='store_true', help='Trigger the rename function.')
 parser.add_argument('-s', '--summarize', action='store_true', help='Enable summarization of the OCR text.')
 parser.add_argument('-m', '--move', action='store_true', help='Move the files after processing.')
 parser.add_argument('-o', '--keep-ocr-output', action='store_true',
@@ -176,14 +177,15 @@ for file_name in os.listdir(DIR):
     if os.path.isfile(file_path) and file_extension in extension_to_function:
         extension_to_function[file_extension](file_path, file_name, DONE_DIR, ORIG_DIR, KEEP_ORIGINAL, LANGUAGE)
 
-# Initialize progress bar
-total_files = sum(1 for file_name in os.listdir(DIR) if
-                  os.path.isfile(os.path.join(DIR, file_name)) and file_name.lower().endswith(
-                      ('.pdf', '.jpg', '.png')))
-if total_files > 0:
-    bar = progressbar.ProgressBar(maxval=total_files,
-                                  widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
-    bar.start()
+# Initialize progress bar if not in debug mode
+if not args.debug:
+    total_files = sum(1 for file_name in os.listdir(DIR) if
+                      os.path.isfile(os.path.join(DIR, file_name)) and file_name.lower().endswith(
+                          ('.pdf', '.jpg', '.png')))
+    if total_files > 0:
+        bar = progressbar.ProgressBar(maxval=total_files,
+                                      widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+        bar.start()
 
 file_count = 0
 
@@ -219,13 +221,14 @@ for file_name in os.listdir(DIR):
                     new_filename = f"{cleaned_filename}{file_extension}"
                     new_filepath = os.path.join(DONE_DIR, new_filename)
 
-                    if args.move:
-                        shutil.move(file_path, new_filepath)
-                        print(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
-                    elif KEEP_ORIGINAL:
-                        shutil.copy2(file_path, new_filepath)
-                        shutil.move(file_path, os.path.join(ORIG_DIR, file_name))
-                        print(f"'{file_path}' was successfully renamed to '{new_filepath}' and copied")
+                    if args.rename:
+                        if args.move:
+                            shutil.move(file_path, new_filepath)
+                            print(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
+                        elif KEEP_ORIGINAL:
+                            shutil.copy2(file_path, new_filepath)
+                            shutil.move(file_path, os.path.join(ORIG_DIR, file_name))
+                            print(f"'{file_path}' was successfully renamed to '{new_filepath}' and copied")
 
                     # Generate summary
                     if args.summarize:
@@ -253,9 +256,9 @@ for file_name in os.listdir(DIR):
             if args.debug:
                 print(f"OCR processing of '{file_path}' failed or no text recognized.")
 
-        if total_files > 0:
+        if not args.debug and total_files > 0:
             bar.update(file_count)
         file_count += 1
 
-if total_files > 0:
+if not args.debug and total_files > 0:
     bar.finish()
