@@ -46,6 +46,20 @@ def generate_filename(ocr_text):
         return filename.strip()
     return None
 
+def call_llm(prompt):
+    response = requests.post('http://localhost:11434/api/generate', json={"model": "llama3.1",
+        "prompt": prompt, "max_tokens": 100})
+    if response.status_code == 200:
+        try:
+            response_data = response.json()
+            return response_data.get('response', '').strip()
+        except requests.exceptions.JSONDecodeError:
+            logging.debug("Failed to decode JSON response from LLM.")
+            return None
+    else:
+        logging.debug(f"Failed to call LLM due to non-200 status code: {response.status_code}")
+        return None
+
 
 # Function to clean and validate the generated filename
 def clean_filename(filename):
@@ -245,16 +259,3 @@ for file_name in os.listdir(DIR):
 
 if total_files > 0:
     bar.finish()
-def call_llm(prompt):
-    response = requests.post('http://localhost:11434/api/generate', json={"model": "llama3.1",
-        "prompt": prompt, "max_tokens": 100})
-    if response.status_code == 200:
-        try:
-            response_data = response.json()
-            return response_data.get('response', '').strip()
-        except requests.exceptions.JSONDecodeError:
-            logging.debug("Failed to decode JSON response from LLM.")
-            return None
-    else:
-        logging.debug(f"Failed to call LLM due to non-200 status code: {response.status_code}")
-        return None
