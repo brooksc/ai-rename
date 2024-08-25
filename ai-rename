@@ -1,72 +1,73 @@
-#!/usr/bin/env python3
-import argparse
-import json
-import logging
+#!/usr/bin/env python
 import os
-import re
-import shutil
-import subprocess
 import sys
-
+import json
+import shutil
+import logging
+import argparse
+import subprocess
 import progressbar
 import requests
-
-
-# import openai  # Assuming you have the openai library installed
-# import progressbar
-
+import re
+from typing import Dict, Any
 
 # Function to perform OCR on the file
-def perform_ocr(file_path, LANGUAGE):
+def perform_ocr(file_path: str, LANGUAGE: str) -> str:
     ocr_text = ""
     if file_path.lower().endswith('.pdf'):
         # Convert PDF to PNG for OCR processing
         image_file = f"{os.path.splitext(file_path)[0]}.png"
         subprocess.run(['pdftoppm', file_path, os.path.splitext(file_path)[0], '-png', '-f', '1', '-singlefile'])
         if os.path.isfile(image_file):
-            ocr_text = subprocess.check_output(['tesseract', image_file, '-', '-l', LANGUAGE]).decode('utf-8')
+            ocr_text = subprocess.check_output(['tesseract', image_file, 'stdout', '-l', LANGUAGE]).decode('utf-8')
             os.remove(image_file)
     elif file_path.lower().endswith(('.jpg', '.png')):
-        ocr_text = subprocess.check_output(['tesseract', file_path, '-', '-l', LANGUAGE]).decode('utf-8')
+        ocr_text = subprocess.check_output(['tesseract', file_path, 'stdout', '-l', LANGUAGE]).decode('utf-8')
     return ocr_text.strip()
 
-
 # Function to generate a filename based on OCR content using AI
-def generate_filename(ocr_text):
+def generate_filename(ocr_text: str, config: Dict[str, Any]) -> str:
     filename_prompt = config['prompts']['filename_generation']
-    payload = {"messages": [{"role": "system", "content": filename_prompt},
-                            {"role": "user", "content": f"Here is the file content: {ocr_text}"}],
-               "temperature": 0, "max_tokens": -1, "stream": False}
+    payload = {
+        "messages": [
+            {"role": "system", "content": filename_prompt},
+            {"role": "user", "content": f"Here is the file content: {ocr_text}"}
+        ],
+        "temperature": 0,
+        "max_tokens": 100,
+        "stream": False
+    }
 
-    response = requests.post('http://localhost:11434/v1/chat/completions', headers={"Content-Type": "application/json"},
-                             data=json.dumps(payload))
-    if response.status_code == 200:
+    try:
+        response = requests.post(
+            'http://localhost:11434/v1/chat/completions',
+            headers={"Content-Type": "application/json"},
+            data=json.dumps(payload),
+            timeout=30
+        )
+        response.raise_for_status()
         response_json = response.json()
-        filename = response_json['choices'][0]['message']['content']
-        return filename.strip()
-    return None
+        return response_json['choices'][0]['message']['content'].strip()
+    except (requests.RequestException, json.JSONDecodeError, KeyError) as e:
+        logging.error(f"Error generating filename: {str(e)}")
+        return ''
 
-def call_llm(prompt):
-    response = requests.post('http://localhost:11434/api/generate',
-                             json={"model": "llama3.1",
-                                   "stream": False,
-        "prompt": prompt, "max_tokens": 100})
-    logging.debug(f"prompt:'{prompt}'")
-    logging.debug(f"response={json.dumps(response.text)}")
-    if response.status_code == 200:
-        try:
-            response_data = response.json()
-            return response_data.get('response', '').strip()
-        except requests.exceptions.JSONDecodeError:
-            logging.debug("Failed to decode JSON response from LLM.")
-            return None
-    else:
-        logging.debug(f"Failed to call LLM due to non-200 status code: {response.status_code}")
-        return None
-
+def call_llm(prompt: str) -> str:
+    try:
+        response = requests.post(
+            'http://localhost:11434/api/generate',
+            json={"model": "llama2", "stream": False, "prompt": prompt, "max_tokens": 100},
+            timeout=30
+        )
+        response.raise_for_status()
+        response_data = response.json()
+        return response_data.get('response', '').strip()
+    except (requests.RequestException, json.JSONDecodeError) as e:
+        logging.error(f"Failed to call LLM: {str(e)}")
+        return ''
 
 # Function to clean and validate the generated filename
-def clean_filename(filename):
+def clean_filename(filename: str) -> str:
     cleaned_content = re.sub(r'[^a-zA-Z0-9 ]', ' ', filename)
     cleaned_content = re.sub(r'\s+', ' ', cleaned_content).strip()
     cleaned_content = re.sub(r'([a-z])([A-Z])', r'\1 \2', cleaned_content)
@@ -74,37 +75,57 @@ def clean_filename(filename):
 
     if 15 <= content_length <= 100:
         return cleaned_content
-    return None
+    return ''
 
+def rename_pdf(file_path: str, file_name: str, DONE_DIR: str, ORIG_DIR: str, KEEP_ORIGINAL: bool, LANGUAGE: str) -> None:
+    ocr_text = perform_ocr(file_path, LANGUAGE)
+    if not ocr_text:
+        logging.warning(f"OCR failed for file: {file_path}")
+        return
 
-def rename_pdf(file_path, file_name, DONE_DIR, ORIG_DIR, KEEP_ORIGINAL, new_filename):
+    ai_generated_filename = generate_filename(ocr_text, config)
+    if not ai_generated_filename:
+        logging.warning(f"Failed to generate filename for: {file_path}")
+        return
+
+    cleaned_filename = clean_filename(ai_generated_filename)
+    if not cleaned_filename:
+        logging.warning(f"Generated filename is invalid for: {file_path}")
+        return
+
+    new_filename = f"{cleaned_filename}.pdf"
     new_filepath = os.path.join(DONE_DIR, new_filename)
 
-    if args.move:
-        shutil.move(file_path, new_filepath)
-        print(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
-    elif KEEP_ORIGINAL:
-        shutil.copy2(file_path, new_filepath)
-        shutil.move(file_path, os.path.join(ORIG_DIR, file_name))
-        print(f"'{file_path}' was successfully renamed to '{new_filepath}' and copied")
-    else:
-        os.rename(file_path, new_filepath)
-        print(f"'{file_path}' was successfully renamed to '{new_filepath}'")
+    try:
+        if args.move:
+            shutil.move(file_path, new_filepath)
+            logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
+        elif KEEP_ORIGINAL:
+            shutil.copy2(file_path, new_filepath)
+            shutil.move(file_path, os.path.join(ORIG_DIR, file_name))
+            logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}' and copied")
+        else:
+            os.rename(file_path, new_filepath)
+            logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}'")
+    except OSError as e:
+        logging.error(f"Error renaming file {file_path}: {str(e)}")
 
-
-def read_config():
+def read_config() -> Dict[str, Any]:
     config_file = 'config.json'
-    if os.path.exists(config_file):
+    try:
         with open(config_file, 'r') as f:
             return json.load(f)
-    return {}
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        logging.error(f"Error reading config file: {str(e)}")
+        return {}
 
-
-def write_config(config):
+def write_config(config: Dict[str, Any]) -> None:
     config_file = 'config.json'
-    with open(config_file, 'w') as f:
-        json.dump(config, f, indent=4)
-
+    try:
+        with open(config_file, 'w') as f:
+            json.dump(config, f, indent=4)
+    except IOError as e:
+        logging.error(f"Error writing config file: {str(e)}")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -115,11 +136,9 @@ parser.add_argument('directory', type=str, help='The directory containing files 
 parser.add_argument('-r', '--rename', action='store_true', help='Trigger the rename function.')
 parser.add_argument('-s', '--summarize', action='store_true', help='Enable summarization of the OCR text.')
 parser.add_argument('-m', '--move', action='store_true', help='Move the files after processing.')
-parser.add_argument('-o', '--keep-ocr-output', action='store_true',
-                    help='Keep a copy of the OCR output per file in the same directory.')
+parser.add_argument('-o', '--keep-ocr-output', action='store_true', help='Keep a copy of the OCR output per file in the same directory.')
 parser.add_argument('-d', '--debug', action='store_true', help='Enable debug logging.')
-parser.add_argument('--keep-original', type=bool, default=True,
-                    help='Preserve the original file after renaming. Default is True.')
+parser.add_argument('--keep-original', type=bool, default=True, help='Preserve the original file after renaming. Default is True.')
 
 args = parser.parse_args()
 
@@ -134,8 +153,12 @@ KEEP_ORIGINAL = args.keep_original
 if not os.path.isdir(DIR):
     create_dir = input(f"The directory '{DIR}' does not exist. Do you want to create it? (y/n): ")
     if create_dir.lower() == 'y':
-        os.makedirs(DIR)
-        logging.info(f"Directory '{DIR}' created.")
+        try:
+            os.makedirs(DIR)
+            logging.info(f"Directory '{DIR}' created.")
+        except OSError as e:
+            logging.error(f"Failed to create directory '{DIR}': {str(e)}")
+            sys.exit(1)
     else:
         logging.error(f"The directory '{DIR}' does not exist.")
         sys.exit(1)
@@ -158,37 +181,14 @@ ORIG_DIR = os.path.join(DIR, ORIG_SUBDIR)
 os.makedirs(ORIG_DIR, exist_ok=True)
 
 # Lookup table for file extensions to their respective processing functions
-extension_to_function = {# '.pdf': rename_pdf
-}
+extension_to_function = {'.pdf': rename_pdf}
 
-# Process each file in the directory
-for file_name in os.listdir(DIR):
-    file_path = os.path.join(DIR, file_name)
-    file_extension = os.path.splitext(file_name)[1].lower()
-
-    if os.path.isfile(file_path) and file_extension in extension_to_function:
-        extension_to_function[file_extension](file_path, file_name, DONE_DIR, ORIG_DIR, KEEP_ORIGINAL, LANGUAGE)
-
-# Lookup table for file extensions to their respective processing functions
-extension_to_function = {# '.pdf': rename_pdf
-}
-
-# Process each file in the directory
-for file_name in os.listdir(DIR):
-    file_path = os.path.join(DIR, file_name)
-    file_extension = os.path.splitext(file_name)[1].lower()
-
-    if os.path.isfile(file_path) and file_extension in extension_to_function:
-        extension_to_function[file_extension](file_path, file_name, DONE_DIR, ORIG_DIR, KEEP_ORIGINAL, LANGUAGE)
-
+total_files = 0 # this should never be used since it's only used for debug.  '
 # Initialize progress bar if not in debug mode
 if not args.debug:
-    total_files = sum(1 for file_name in os.listdir(DIR) if
-                      os.path.isfile(os.path.join(DIR, file_name)) and file_name.lower().endswith(
-                          ('.pdf', '.jpg', '.png')))
+    total_files = sum(1 for file_name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, file_name)) and file_name.lower().endswith(('.pdf', '.jpg', '.png')))
     if total_files > 0:
-        bar = progressbar.ProgressBar(maxval=total_files,
-                                      widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+        bar = progressbar.ProgressBar(maxval=total_files, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
         bar.start()
 
 file_count = 0
@@ -196,71 +196,35 @@ file_count = 0
 # Process each file in the directory
 for file_name in os.listdir(DIR):
     file_path = os.path.join(DIR, file_name)
+    file_extension = os.path.splitext(file_name)[1].lower()
 
-    if os.path.isfile(file_path) and file_path.lower().endswith(('.pdf', '.jpg', '.png')):
+    if os.path.isfile(file_path) and file_extension in extension_to_function:
         if args.debug:
-            print(f"{file_path}")
+            logging.debug(f"Processing file: {file_path}")
 
-        if args.debug:
-            print("Starting OCR recognition ...")
-        ocr_text = perform_ocr(file_path, LANGUAGE)
-        if args.keep_ocr_output:
-            ocr_output_filename = f"{os.path.splitext(file_name)[0]}_ocr_output.txt"
-            ocr_output_filepath = os.path.join(DONE_DIR, ocr_output_filename)
-            with open(ocr_output_filepath, 'w') as f:
-                f.write(ocr_text)
-            if args.debug:
-                print(f"OCR output saved to '{ocr_output_filepath}'")
+        try:
+            extension_to_function[file_extension](file_path, file_name, DONE_DIR, ORIG_DIR, KEEP_ORIGINAL, LANGUAGE)
+        except Exception as e:
+            logging.error(f"Error processing file {file_path}: {str(e)}")
 
-        if ocr_text:
-            if args.debug:
-                print("OCR successful")
-
-            # Generate summary
-            if args.summarize:
-                # Use LLM for summarization
+        if args.summarize:
+            try:
+                ocr_text = perform_ocr(file_path, LANGUAGE)
                 summarization_prompt = f"{config['prompts']['summarization']}:{ocr_text}"
-                logging.debug(f"Summarization prompt: {summarization_prompt}")
                 summary = call_llm(summarization_prompt)
                 if summary:
-                    logging.debug(f"Summarization response: {summary}")
-                if summary:
-                    summary_filename = f"{cleaned_filename if 'cleaned_filename' in locals() else os.path.splitext(file_name)[0]}_summary.txt"
+                    summary_filename = f"{os.path.splitext(file_name)[0]}_summary.txt"
                     summary_filepath = os.path.join(DONE_DIR, summary_filename)
                     with open(summary_filepath, 'w') as f:
                         f.write(summary)
-                    print(f"Summary saved to '{summary_filepath}'")
+                    logging.info(f"Summary saved to '{summary_filepath}'")
                 else:
-                    print("Failed to generate summary.")
-
-            ai_generated_filename = generate_filename(ocr_text)
-            if ai_generated_filename:
-                cleaned_filename = clean_filename(ai_generated_filename)
-                if cleaned_filename:
-                    file_extension = os.path.splitext(file_name)[1]
-                    new_filename = f"{cleaned_filename}{file_extension}"
-                    new_filepath = os.path.join(DONE_DIR, new_filename)
-
-                    if args.rename:
-                        if args.move:
-                            shutil.move(file_path, new_filepath)
-                            print(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
-                        elif KEEP_ORIGINAL:
-                            shutil.copy2(file_path, new_filepath)
-                            shutil.move(file_path, os.path.join(ORIG_DIR, file_name))
-                            print(f"'{file_path}' was successfully renamed to '{new_filepath}' and copied")
-
-
-                else:
-                    if args.debug:
-                        print("Resulting filename is not between 15 - 100 characters")
-
-        else:
-            if args.debug:
-                print(f"OCR processing of '{file_path}' failed or no text recognized.")
+                    logging.warning(f"Failed to generate summary for {file_path}")
+            except Exception as e:
+                logging.error(f"Error generating summary for {file_path}: {str(e)}")
 
         if not args.debug and total_files > 0:
-            bar.update(file_count)
+            bar.update(file_count + 1)
         file_count += 1
 
 if not args.debug and total_files > 0:

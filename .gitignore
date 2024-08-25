@@ -166,3 +166,7 @@ cython_debug/
 .idea
 pdfs/
 .aider*
+orig.ys/
+ys/
+pdfs/
+reset
