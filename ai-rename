@@ -11,7 +11,7 @@ import progressbar
 import requests
 import re
 from typing import Dict, Any
-from pathlib import Path
+# from pathlib import Path
 
 def handle_exception(operation: str, exception: Exception) -> None:
     if isinstance(exception, FileNotFoundError):
@@ -29,17 +29,35 @@ def handle_exception(operation: str, exception: Exception) -> None:
     else:
         logging.error(f"Unexpected error during {operation}: {str(exception)}")
 
+def check_command_exists(command: str) -> bool:
+    try:
+        subprocess.run([command, '--version'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except FileNotFoundError:
+        return False
+
+def check_required_commands() -> None:
+    required_commands = ['magick', 'mogrify', 'tesseract']
+    missing_commands = [cmd for cmd in required_commands if not check_command_exists(cmd)]
+
+    if missing_commands:
+        logging.error(f"The following required commands are not installed: {', '.join(missing_commands)}")
+        logging.error("Please install these commands before running the script.")
+        sys.exit(1)
+
 class FileProcessor:
     def __init__(self, config: Dict[str, Any], args: argparse.Namespace):
         self.config = config
         self.args = args
-        self.extension_to_function = {'.pdf': self.rename_pdf}
+        self.extension_to_function = {'.pdf': self.process_pdf, '.jpg': self.process_image, '.png': self.process_image}
+        check_required_commands()
 
     def setup_directories(self, base_dir: str) -> Dict[str, str]:
         done_dir = os.path.join(base_dir, 'done')
         orig_dir = os.path.join(base_dir, self.config.get('ORIG_SUBDIR', 'orig'))
-        self.create_directory(done_dir)
-        self.create_directory(orig_dir)
+        if self.args.rename or self.args.move:
+            self.create_directory(done_dir)
+            self.create_directory(orig_dir)
         return {'DONE_DIR': done_dir, 'ORIG_DIR': orig_dir}
 
     def create_directory(self, dir_path: str) -> None:
@@ -51,19 +69,20 @@ class FileProcessor:
             sys.exit(1)
 
     def process_files(self, dir_path: str) -> None:
-        dirs = self.setup_directories(dir_path)
-        total_files = self.count_files(dir_path)
+        for root, dirs, files in os.walk(dir_path):
+            dirs = self.setup_directories(root)
+            total_files = sum(1 for file in files if file.lower().endswith(('.pdf', '.jpg', '.png')))
 
-        if not self.args.debug and total_files > 0:
-            bar = self.setup_progress_bar(total_files)
-        else:
-            bar = None
+            if not self.args.debug and total_files > 0:
+                bar = self.setup_progress_bar(total_files)
+            else:
+                bar = None
 
-        for file_count, file_name in enumerate(os.listdir(dir_path)):
-            self.process_single_file(dir_path, file_name, dirs, file_count, bar)
+            for file_count, file_name in enumerate(files):
+                self.process_single_file(root, file_name, dirs, file_count, bar)
 
-        if bar:
-            bar.finish()
+            if bar:
+                bar.finish()
 
     def count_files(self, dir_path: str) -> int:
         return sum(1 for file_name in os.listdir(dir_path)
@@ -96,25 +115,25 @@ class FileProcessor:
 
         if self.args.summarize:
             try:
-                self.generate_summary(file_path, file_name, dirs['DONE_DIR'])
+                self.generate_summary(file_path, file_name)
             except Exception as e:
                 handle_exception("summary generation", e)
 
-    def generate_summary(self, file_path: str, file_name: str, done_dir: str) -> None:
+    def generate_summary(self, file_path: str, file_name: str) -> None:
         try:
             ocr_text = self.perform_ocr(file_path)
             summarization_prompt = f"{self.config['prompts']['summarization']}:{ocr_text}"
             summary = self.call_llm(summarization_prompt)
             if summary:
-                self.save_summary(file_name, summary, done_dir)
+                self.save_summary(file_path, file_name, summary)
             else:
                 logging.warning(f"Failed to generate summary for {file_path}")
         except Exception as e:
             logging.error(f"Error generating summary for {file_path}: {str(e)}")
 
-    def save_summary(self, file_name: str, summary: str, done_dir: str) -> None:
+    def save_summary(self, file_path: str, file_name: str, summary: str) -> None:
         summary_filename = f"{os.path.splitext(file_name)[0]}_summary.txt"
-        summary_filepath = os.path.join(done_dir, summary_filename)
+        summary_filepath = os.path.join(os.path.dirname(file_path), summary_filename)
         with open(summary_filepath, 'w') as f:
             f.write(summary)
         logging.info(f"Summary saved to '{summary_filepath}'")
@@ -128,27 +147,126 @@ class FileProcessor:
         return ocr_text.strip()
 
     def perform_pdf_ocr(self, file_path: str) -> str:
-        image_file = f"{os.path.splitext(file_path)[0]}.png"
-        subprocess.run(['pdftoppm', file_path, os.path.splitext(file_path)[0], '-png', '-f', '1', '-singlefile'])
-        if os.path.isfile(image_file):
-            ocr_text = subprocess.check_output(['tesseract', image_file, 'stdout', '-l', self.config['LANGUAGE']]).decode('utf-8')
-            os.remove(image_file)
-            return ocr_text
-        return ""
+        base_name = os.path.splitext(file_path)[0]
+        image_file = f"{base_name}-%d.png"
+
+        # Check if images have already been generated
+        if not os.path.exists(f"{base_name}-1.png"):
+            # Convert PDF to high-res images
+            cmd = ['magick', 'convert', '-density', '300', file_path, '-depth', '8', '-strip', '-background', 'white', '-alpha', 'off', f"{base_name}.png"]
+            if self.args.debug:
+                logging.debug(f"Executing command: {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if self.args.debug:
+                logging.debug(f"Command output: {result.stdout}\nErrors: {result.stderr}")
+        else:
+            logging.info(f"Images for {file_path} already exist, skipping conversion.")
+
+        # Scan for generated image files
+        image_files = [f for f in os.listdir(os.path.dirname(base_name)) if f.startswith(os.path.basename(base_name)) and f.endswith('.png')]
+        image_files.sort()
+
+        ocr_text = ""
+        for image_file in image_files:
+            page_image = os.path.join(os.path.dirname(base_name), image_file)
+
+            # Preprocess the image
+            cmd = ['mogrify', '-contrast', '-sharpen', '0x1', page_image]
+            if self.args.debug:
+                logging.debug(f"Executing command: {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if self.args.debug:
+                logging.debug(f"Command output: {result.stdout}\nErrors: {result.stderr}")
+
+            cmd = ['magick', 'convert', page_image, '-threshold', '50%', f"{page_image}_bw.png"]
+            if self.args.debug:
+                logging.debug(f"Executing command: {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if self.args.debug:
+                logging.debug(f"Command output: {result.stdout}\nErrors: {result.stderr}")
+
+            # Perform OCR on the preprocessed image
+            cmd = [
+                'tesseract', f"{page_image}_bw.png", 'stdout',
+                '-l', self.config['LANGUAGE'],
+                '--dpi', '300',
+                '--psm', '6',
+                '--oem', '1'
+            ]
+            if self.args.debug:
+                logging.debug(f"Executing command: {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if self.args.debug:
+                logging.debug(f"Command output: {result.stdout}\nErrors: {result.stderr}")
+            ocr_text += result.stdout + "\n\n"  # Add page break between pages
+
+            # Clean up temporary files
+            if not self.args.debug:
+                os.remove(page_image)
+                os.remove(f"{page_image}_bw.png")
+
+        return ocr_text
 
     def perform_image_ocr(self, file_path: str) -> str:
-        return subprocess.check_output(['tesseract', file_path, 'stdout', '-l', self.config['LANGUAGE']]).decode('utf-8')
+        base_name = os.path.splitext(file_path)[0]
+        bw_file_path = f"{base_name}_bw.png"
+
+        # Check if the image has already been processed
+        if os.path.exists(bw_file_path):
+            logging.info(f"Processed image '{bw_file_path}' already exists, skipping preprocessing.")
+        else:
+            # Preprocess the image
+            cmd = ['mogrify', '-contrast', '-sharpen', '0x1', file_path]
+            if self.args.debug:
+                logging.debug(f"Executing command: {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if self.args.debug:
+                logging.debug(f"Command output: {result.stdout}\nErrors: {result.stderr}")
+
+            cmd = ['magick', 'convert', file_path, '-threshold', '50%', bw_file_path]
+            if self.args.debug:
+                logging.debug(f"Executing command: {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if self.args.debug:
+                logging.debug(f"Command output: {result.stdout}\nErrors: {result.stderr}")
+
+        # Perform OCR on the preprocessed image
+        cmd = [
+            'tesseract', bw_file_path, 'stdout',
+            '-l', self.config['LANGUAGE'],
+            '--dpi', '300',
+            '--psm', '6',
+            '--oem', '1'
+        ]
+        if self.args.debug:
+            logging.debug(f"Executing command: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if self.args.debug:
+            logging.debug(f"Command output: {result.stdout}\nErrors: {result.stderr}")
+        ocr_text = result.stdout
+
+        # Clean up temporary file
+        if not self.args.debug:
+            os.remove(bw_file_path)
+
+        return ocr_text
 
     def call_llm(self, prompt: str) -> str:
         try:
+            logging.debug(f"prompt:\n---\n{prompt}\n---\n")
+
             response = requests.post(
                 'http://localhost:11434/api/generate',
-                json={"model": "llama2", "stream": False, "prompt": prompt, "max_tokens": 100},
-                timeout=30
+                json={"model": "llama3.1", "stream": False, "prompt": prompt, "max_tokens": 100},
+                timeout=90
             )
             response.raise_for_status()
             response_data = response.json()
-            return response_data.get('response', '').strip()
+
+            llm_response = response_data.get('response', '').strip()
+            logging.debug(f"response:\n---\n{llm_response}\n---\n")
+
+            return llm_response
         except requests.RequestException as e:
             handle_exception("LLM API call", e)
             return ''
@@ -156,12 +274,25 @@ class FileProcessor:
             handle_exception("LLM response parsing", e)
             return ''
 
-    def rename_pdf(self, file_path: str, file_name: str, done_dir: str, orig_dir: str) -> None:
+    def process_pdf(self, file_path: str, file_name: str, done_dir: str, orig_dir: str) -> None:
         ocr_text = self.perform_ocr(file_path)
         if not ocr_text:
             logging.warning(f"OCR failed for file: {file_path}")
             return
 
+        if self.args.rename:
+            self.rename_file(file_path, file_name, done_dir, orig_dir, ocr_text)
+
+    def process_image(self, file_path: str, file_name: str, done_dir: str, orig_dir: str) -> None:
+        ocr_text = self.perform_ocr(file_path)
+        if not ocr_text:
+            logging.warning(f"OCR failed for file: {file_path}")
+            return
+
+        if self.args.rename:
+            self.rename_file(file_path, file_name, done_dir, orig_dir, ocr_text)
+
+    def rename_file(self, file_path: str, file_name: str, done_dir: str, orig_dir: str, ocr_text: str) -> None:
         ai_generated_filename = self.generate_filename(ocr_text)
         if not ai_generated_filename:
             logging.warning(f"Failed to generate filename for: {file_path}")
@@ -172,7 +303,8 @@ class FileProcessor:
             logging.warning(f"Generated filename is invalid for: {file_path}")
             return
 
-        new_filename = f"{cleaned_filename}.pdf"
+        file_extension = os.path.splitext(file_name)[1]
+        new_filename = f"{cleaned_filename}{file_extension}"
         new_filepath = os.path.join(done_dir, new_filename)
 
         try:
@@ -197,7 +329,7 @@ class FileProcessor:
                 'http://localhost:11434/v1/chat/completions',
                 headers={"Content-Type": "application/json"},
                 data=json.dumps(payload),
-                timeout=30
+                timeout=90
             )
             response.raise_for_status()
             response_json = response.json()
@@ -297,6 +429,8 @@ def main():
     if not config:
         config = create_config()
         write_config(config)
+
+    check_required_commands()
 
     processor = FileProcessor(config, args)
 
