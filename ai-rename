@@ -1,26 +1,18 @@
 #!/usr/bin/env python3
 
-# Configure logging
-logging.basicConfig(
-    level=logging.DEBUG if args.debug else logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('file_processor.log')
-    ]
-)
+import os
+import sys
+import json
+import shutil
+import logging
+import argparse
+import subprocess
+import progressbar
+import requests
+import re
+from typing import Dict, Any
+from pathlib import Path
 
-# Log script start
-logging.info("File processing script started")
-
-# Log configuration details
-logging.info(f"Processing directory: {args.directory}")
-logging.info(f"Rename mode: {'Enabled' if args.rename else 'Disabled'}")
-logging.info(f"Summarize mode: {'Enabled' if args.summarize else 'Disabled'}")
-logging.info(f"Move files: {'Yes' if args.move else 'No'}")
-logging.info(f"Keep original: {'Yes' if args.keep_original else 'No'}")
-logging.info(f"Debug mode: {'Enabled' if args.debug else 'Disabled'}")
-# Exception handling function
 def handle_exception(operation: str, exception: Exception) -> None:
     if isinstance(exception, FileNotFoundError):
         logging.error(f"File not found during {operation}: {str(exception)}")
@@ -36,98 +28,6 @@ def handle_exception(operation: str, exception: Exception) -> None:
         logging.error(f"JSON decoding error during {operation}: {str(exception)}")
     else:
         logging.error(f"Unexpected error during {operation}: {str(exception)}")
-
-# Update existing methods to use the new exception handling
-
-def create_directory(self, dir_path: str) -> None:
-    try:
-        os.makedirs(dir_path, exist_ok=True)
-        logging.info(f"Directory '{dir_path}' created.")
-    except Exception as e:
-        handle_exception("directory creation", e)
-        sys.exit(1)
-
-def process_file(self, file_path: str, file_name: str, process_func: callable, dirs: Dict[str, str]) -> None:
-    if self.args.debug:
-        logging.debug(f"Processing file: {file_path}")
-
-    try:
-        process_func(file_path, file_name, dirs['DONE_DIR'], dirs['ORIG_DIR'])
-    except Exception as e:
-        handle_exception("file processing", e)
-
-    if self.args.summarize:
-        try:
-            self.generate_summary(file_path, file_name, dirs['DONE_DIR'])
-        except Exception as e:
-            handle_exception("summary generation", e)
-
-def call_llm(self, prompt: str) -> str:
-    try:
-        response = requests.post(
-            'http://localhost:11434/api/generate',
-            json={"model": "llama2", "stream": False, "prompt": prompt, "max_tokens": 100},
-            timeout=30
-        )
-        response.raise_for_status()
-        response_data = response.json()
-        return response_data.get('response', '').strip()
-    except requests.RequestException as e:
-        handle_exception("LLM API call", e)
-        return ''
-    except json.JSONDecodeError as e:
-        handle_exception("LLM response parsing", e)
-        return ''
-
-def move_or_copy_file(self, file_path: str, new_filepath: str, orig_dir: str, file_name: str) -> None:
-    try:
-        if self.args.move:
-            shutil.move(file_path, new_filepath)
-            logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
-        elif self.args.keep_original:
-            shutil.copy2(file_path, new_filepath)
-            shutil.move(file_path, os.path.join(orig_dir, file_name))
-            logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}' and copied")
-        else:
-            os.rename(file_path, new_filepath)
-            logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}'")
-    except (IOError, OSError) as e:
-        handle_exception("file operation", e)
-
-def read_config() -> Dict[str, Any]:
-    config_file = 'config.json'
-    try:
-        with open(config_file, 'r') as f:
-            return json.load(f)
-    except FileNotFoundError as e:
-        handle_exception("config file reading", e)
-        return {}
-    except json.JSONDecodeError as e:
-        handle_exception("config file parsing", e)
-        return {}
-
-def write_config(config: Dict[str, Any]) -> None:
-    config_file = 'config.json'
-    try:
-        with open(config_file, 'w') as f:
-            json.dump(config, f, indent=4)
-    except IOError as e:
-        handle_exception("config file writing", e)
-#!/usr/bin/env python3
-
-# Import necessary modules
-import os
-import sys
-import json
-import shutil
-import logging
-import argparse
-import subprocess
-import progressbar
-import requests
-import re
-from typing import Dict, Any
-from pathlib import Path
 
 class FileProcessor:
     def __init__(self, config: Dict[str, Any], args: argparse.Namespace):
@@ -146,8 +46,8 @@ class FileProcessor:
         try:
             os.makedirs(dir_path, exist_ok=True)
             logging.info(f"Directory '{dir_path}' created.")
-        except OSError as e:
-            logging.error(f"Failed to create directory '{dir_path}': {str(e)}")
+        except Exception as e:
+            handle_exception("directory creation", e)
             sys.exit(1)
 
     def process_files(self, dir_path: str) -> None:
@@ -192,10 +92,13 @@ class FileProcessor:
         try:
             process_func(file_path, file_name, dirs['DONE_DIR'], dirs['ORIG_DIR'])
         except Exception as e:
-            logging.error(f"Error processing file {file_path}: {str(e)}")
+            handle_exception("file processing", e)
 
         if self.args.summarize:
-            self.generate_summary(file_path, file_name, dirs['DONE_DIR'])
+            try:
+                self.generate_summary(file_path, file_name, dirs['DONE_DIR'])
+            except Exception as e:
+                handle_exception("summary generation", e)
 
     def generate_summary(self, file_path: str, file_name: str, done_dir: str) -> None:
         try:
@@ -246,8 +149,11 @@ class FileProcessor:
             response.raise_for_status()
             response_data = response.json()
             return response_data.get('response', '').strip()
-        except (requests.RequestException, json.JSONDecodeError) as e:
-            logging.error(f"Failed to call LLM: {str(e)}")
+        except requests.RequestException as e:
+            handle_exception("LLM API call", e)
+            return ''
+        except json.JSONDecodeError as e:
+            handle_exception("LLM response parsing", e)
             return ''
 
     def rename_pdf(self, file_path: str, file_name: str, done_dir: str, orig_dir: str) -> None:
@@ -311,20 +217,30 @@ class FileProcessor:
         return ''
 
     def move_or_copy_file(self, file_path: str, new_filepath: str, orig_dir: str, file_name: str) -> None:
-        if self.args.move:
-            shutil.move(file_path, new_filepath)
-            logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
-        elif self.args.keep_original:
-            shutil.copy2(file_path, new_filepath)
-            shutil.move(file_path, os.path.join(orig_dir, file_name))
-            logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}' and copied")
-        else:
-            os.rename(file_path, new_filepath)
-            logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}'")
+        try:
+            if self.args.move:
+                shutil.move(file_path, new_filepath)
+                logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
+            elif self.args.keep_original:
+                shutil.copy2(file_path, new_filepath)
+                shutil.move(file_path, os.path.join(orig_dir, file_name))
+                logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}' and copied")
+            else:
+                os.rename(file_path, new_filepath)
+                logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}'")
+        except (IOError, OSError) as e:
+            handle_exception("file operation", e)
 
 def setup_logging(debug: bool) -> None:
     level = logging.DEBUG if debug else logging.INFO
-    logging.basicConfig(level=level, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler('file_processor.log')
+        ]
+    )
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Process files in a directory using OCR and AI to generate filenames.')
@@ -342,8 +258,11 @@ def read_config() -> Dict[str, Any]:
     try:
         with open(config_file, 'r') as f:
             return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        logging.error(f"Error reading config file: {str(e)}")
+    except FileNotFoundError as e:
+        handle_exception("config file reading", e)
+        return {}
+    except json.JSONDecodeError as e:
+        handle_exception("config file parsing", e)
         return {}
 
 def write_config(config: Dict[str, Any]) -> None:
@@ -352,7 +271,7 @@ def write_config(config: Dict[str, Any]) -> None:
         with open(config_file, 'w') as f:
             json.dump(config, f, indent=4)
     except IOError as e:
-        logging.error(f"Error writing config file: {str(e)}")
+        handle_exception("config file writing", e)
 
 def create_config() -> Dict[str, Any]:
     LANGUAGE = input(f"Enter the language for OCR (default: eng): ") or 'eng'
@@ -362,6 +281,17 @@ def create_config() -> Dict[str, Any]:
 def main():
     args = parse_arguments()
     setup_logging(args.debug)
+
+    # Log script start
+    logging.info("File processing script started")
+
+    # Log configuration details
+    logging.info(f"Processing directory: {args.directory}")
+    logging.info(f"Rename mode: {'Enabled' if args.rename else 'Disabled'}")
+    logging.info(f"Summarize mode: {'Enabled' if args.summarize else 'Disabled'}")
+    logging.info(f"Move files: {'Yes' if args.move else 'No'}")
+    logging.info(f"Keep original: {'Yes' if args.keep_original else 'No'}")
+    logging.info(f"Debug mode: {'Enabled' if args.debug else 'Disabled'}")
 
     config = read_config()
     if not config:
