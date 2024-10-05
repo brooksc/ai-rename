@@ -466,7 +466,8 @@ def parse_arguments() -> argparse.Namespace:
         argparse.Namespace: An object containing the parsed arguments.
     """
     parser = argparse.ArgumentParser(description='Process files in a directory using OCR and AI to generate filenames.')
-    parser.add_argument('directory', type=str, help='The directory containing files to process.')
+    directory_help = 'The directory containing files to process. Optional when -t is used.'
+    parser.add_argument('directory', nargs='?', type=str, help=directory_help)
     parser.add_argument('-n', '--dry-run', action='store_true', help='Simulate the renaming process without actually renaming files. Default is off.')
     parser.add_argument('-r', '--rename', action='store_true', help='Rename the files after processing. Default is off.')
     parser.add_argument('-m', '--move', action='store_true', help='Move the files after processing. Default is off.')
@@ -554,14 +555,22 @@ def main():
             logging.error("LLM connectivity test failed. Exiting.")
             sys.exit(1)
 
-    if os.path.isfile(args.directory):
-        dirs = processor.setup_directories(os.path.dirname(args.directory))
-        processor.process_single_file(os.path.dirname(args.directory), os.path.basename(args.directory), dirs, 0, None)
-    elif os.path.isdir(args.directory):
-        processor.process_files(args.directory)
+    if args.test_llm:
+        if not processor.test_llm_connectivity():
+            logging.error("LLM connectivity test failed. Exiting.")
+            sys.exit(1)
     else:
-        logging.error(f"The path '{args.directory}' does not exist.")
-        sys.exit(1)
+        if not args.directory:
+            logging.error("The directory argument is required unless -t is used.")
+            sys.exit(1)
+        if os.path.isfile(args.directory):
+            dirs = processor.setup_directories(os.path.dirname(args.directory))
+            processor.process_single_file(os.path.dirname(args.directory), os.path.basename(args.directory), dirs, 0, None)
+        elif os.path.isdir(args.directory):
+            processor.process_files(args.directory)
+        else:
+            logging.error(f"The path '{args.directory}' does not exist.")
+            sys.exit(1)
     if not args.debug:
         processor.cleanup()
 if __name__ == '__main__':
