@@ -453,7 +453,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument('-s', '--summarize', action='store_true', help='Enable summarization of the OCR text.')
     parser.add_argument('-o', '--keep-ocr-output', action='store_true', help='Keep a copy of the OCR output per file in the same directory.')
     parser.add_argument('-d', '--debug', action='store_true', help='Enable debug logging.')
-    parser.add_argument('--keep-original', action='store_true', help='Preserve the original file after renaming. Default is True.')
+    parser.add_argument('--keep-original', action='store_true', default=False, help='Preserve the original file after renaming. Default is False.')
     return parser.parse_args()
 
 def read_config() -> Dict[str, Any]:
