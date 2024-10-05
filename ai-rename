@@ -81,8 +81,7 @@ class FileProcessor:
         else:
             self.temp_dir.cleanup()
         # Set default value for keep_original if not provided
-        if not hasattr(self.args, 'keep_original'):
-            self.args.keep_original = True
+        self.args.keep_original = getattr(self.args, 'keep_original', True)
 
     def setup_directories(self, base_dir: str) -> Dict[str, str]:
         done_dir = os.path.join(base_dir, 'done')
@@ -446,7 +445,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument('-m', '--move', action='store_true', help='Move the files after processing.')
     parser.add_argument('-o', '--keep-ocr-output', action='store_true', help='Keep a copy of the OCR output per file in the same directory.')
     parser.add_argument('-d', '--debug', action='store_true', help='Enable debug logging.')
-    parser.add_argument('--keep-original', action='store_true', default=True, help='Preserve the original file after renaming. Default is True.')
+    parser.add_argument('--keep-original', action='store_true', help='Preserve the original file after renaming. Default is True.')
     return parser.parse_args()
 
 def read_config() -> Dict[str, Any]:
