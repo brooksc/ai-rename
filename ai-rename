@@ -15,6 +15,13 @@ import tempfile
 # from pathlib import Path
 
 def handle_exception(operation: str, exception: Exception) -> None:
+    """
+    Handle exceptions and log appropriate error messages.
+
+    Args:
+        operation (str): The operation during which the exception occurred.
+        exception (Exception): The exception that was raised.
+    """
     if isinstance(exception, FileNotFoundError):
         logging.error(f"File not found during {operation}: {str(exception)}")
     elif isinstance(exception, PermissionError):
@@ -31,6 +38,15 @@ def handle_exception(operation: str, exception: Exception) -> None:
         logging.error(f"Unexpected error during {operation}: {str(exception)}")
 
 def check_command_exists(command: str) -> bool:
+    """
+    Check if a command exists in the system's PATH.
+
+    Args:
+        command (str): The command to check.
+
+    Returns:
+        bool: True if the command exists, False otherwise.
+    """
     try:
         subprocess.run([command, '--version'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return True
@@ -38,6 +54,11 @@ def check_command_exists(command: str) -> bool:
         return False
 
 def check_required_commands() -> None:
+    """
+    Check if all required commands are installed.
+
+    Exits the script if any required command is missing.
+    """
     required_commands = ['magick', 'mogrify', 'tesseract']
     missing_commands = [cmd for cmd in required_commands if not check_command_exists(cmd)]
 
@@ -392,6 +413,12 @@ class FileProcessor:
             handle_exception("file operation", e)
 
 def setup_logging(debug: bool) -> None:
+    """
+    Set up logging configuration.
+
+    Args:
+        debug (bool): If True, sets the logging level to DEBUG, otherwise to INFO.
+    """
     level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(
         level=level,
@@ -403,6 +430,12 @@ def setup_logging(debug: bool) -> None:
     )
 
 def parse_arguments() -> argparse.Namespace:
+    """
+    Parse command-line arguments.
+
+    Returns:
+        argparse.Namespace: An object containing the parsed arguments.
+    """
     parser = argparse.ArgumentParser(description='Process files in a directory using OCR and AI to generate filenames.')
     parser.add_argument('directory', type=str, help='The directory containing files to process.')
     parser.add_argument('-r', '--rename', action='store_true', help='Trigger the rename function.')
@@ -414,6 +447,12 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 def read_config() -> Dict[str, Any]:
+    """
+    Read the configuration from a JSON file.
+
+    Returns:
+        Dict[str, Any]: The configuration dictionary.
+    """
     config_file = 'config.json'
     try:
         with open(config_file, 'r') as f:
@@ -426,6 +465,12 @@ def read_config() -> Dict[str, Any]:
         return {}
 
 def write_config(config: Dict[str, Any]) -> None:
+    """
+    Write the configuration to a JSON file.
+
+    Args:
+        config (Dict[str, Any]): The configuration dictionary to write.
+    """
     config_file = 'config.json'
     try:
         with open(config_file, 'w') as f:
@@ -434,11 +479,20 @@ def write_config(config: Dict[str, Any]) -> None:
         handle_exception("config file writing", e)
 
 def create_config() -> Dict[str, Any]:
+    """
+    Create a configuration dictionary by prompting the user for input.
+
+    Returns:
+        Dict[str, Any]: The created configuration dictionary.
+    """
     LANGUAGE = input(f"Enter the language for OCR (default: eng): ") or 'eng'
     ORIG_SUBDIR = input(f"Enter the original subdirectory (default: orig): ") or 'orig'
     return {'LANGUAGE': LANGUAGE, 'ORIG_SUBDIR': ORIG_SUBDIR}
 
 def main():
+    """
+    The main function to execute the file processing script.
+    """
     args = parse_arguments()
     setup_logging(args.debug)
 
