@@ -8,7 +8,7 @@ import logging
 import argparse
 import subprocess
 import progressbar
-import requests
+import litellm
 import re
 from typing import Dict, Any
 import tempfile
@@ -308,28 +308,22 @@ class FileProcessor:
             try:
                 logging.debug(f"prompt:\n---\n{prompt}\n---\n")
 
-                response = requests.post(
-                    'http://localhost:11434/api/generate',
-                    json={"model": "llama3.1", "stream": False, "prompt": prompt, "max_tokens": 100},
-                    timeout=90
+                response = litellm.completion(
+                    model="llama3.1",
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=100,
+                    stream=False
                 )
-                if response.status_code == 200:
-                    response_data = response.json()
-                    llm_response = response_data.get('response', '').strip()
-                    logging.debug(f"response:\n---\n{llm_response}\n---\n")
-                    return llm_response
-                elif attempt == 0:
-                    logging.warning(f"Request failed with status code {response.status_code}. Retrying...")
-                    continue
-                else:
-                    response.raise_for_status()
-            except requests.RequestException as e:
+                llm_response = response['choices'][0]['message']['content'].strip()
+                logging.debug(f"response:\n---\n{llm_response}\n---\n")
+                return llm_response
+            except litellm.exceptions.RequestException as e:
                 if attempt == 0:
                     logging.warning(f"Request failed: {str(e)}. Retrying...")
                     continue
                 handle_exception("LLM API call", e)
                 return ''
-            except json.JSONDecodeError as e:
+            except (KeyError, IndexError) as e:
                 handle_exception("LLM response parsing", e)
                 return ''
         return ''
@@ -339,8 +333,7 @@ class FileProcessor:
         logging.info("Testing LLM connectivity...")
         response = self.call_llm(test_prompt)
         try:
-            llm_response = response.strip()
-            if "Test successful" in llm_response:
+            if "Test successful" in response:
                 logging.info("LLM connectivity test successful.")
                 return True
             else:
