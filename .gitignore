@@ -170,3 +170,5 @@ orig.ys/
 ys/
 pdfs/
 reset
+.envrc
+convention.md
