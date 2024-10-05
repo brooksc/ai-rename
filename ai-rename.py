@@ -401,8 +401,8 @@ class FileProcessor:
 
         try:
             response = requests.post(
-                'http://localhost:11434/v1/chat/completions',
-                headers={"Content-Type": "application/json"},
+                'https://api-inference.huggingface.co/models/gpt2',
+                headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.config['API_TOKEN']}"},
                 data=json.dumps(payload),
                 timeout=90
             )

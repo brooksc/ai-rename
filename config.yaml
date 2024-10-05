@@ -1,2 +1,3 @@
 LANGUAGE: eng
 ORIG_SUBDIR: orig
+API_TOKEN: your_huggingface_api_token_here
