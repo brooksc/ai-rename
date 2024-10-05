@@ -51,6 +51,8 @@ class FileProcessor:
         self.args = args
         self.extension_to_function = {'.pdf': self.process_pdf, '.jpg': self.process_image, '.png': self.process_image}
         check_required_commands()
+        self.ai_rename_dir = os.path.expanduser('~/tmp/ai-rename')
+        self.create_directory(self.ai_rename_dir)
 
     def setup_directories(self, base_dir: str) -> Dict[str, str]:
         done_dir = os.path.join(base_dir, 'done')
@@ -133,7 +135,7 @@ class FileProcessor:
 
     def save_summary(self, file_path: str, file_name: str, summary: str) -> None:
         summary_filename = f"{os.path.splitext(file_name)[0]}_summary.txt"
-        summary_filepath = os.path.join(os.path.dirname(file_path), summary_filename)
+        summary_filepath = os.path.join(self.ai_rename_dir, summary_filename)
         with open(summary_filepath, 'w') as f:
             f.write(summary)
         logging.info(f"Summary saved to '{summary_filepath}'")
@@ -151,70 +153,74 @@ class FileProcessor:
         image_file = f"{base_name}-%d.png"
 
         # Check if images have already been generated
-        if not os.path.exists(f"{base_name}-1.png"):
+        cached_images = [f for f in os.listdir(self.ai_rename_dir) if f.startswith(os.path.basename(base_name)) and f.endswith('.png')]
+        if not cached_images:
             # Convert PDF to high-res images
-            cmd = ['magick', 'convert', '-density', '300', file_path, '-depth', '8', '-strip', '-background', 'white', '-alpha', 'off', f"{base_name}.png"]
+            cmd = ['magick', 'convert', '-density', '300', file_path, '-depth', '8', '-strip', '-background', 'white', '-alpha', 'off', f"{self.ai_rename_dir}/{os.path.basename(base_name)}-%d.png"]
             if self.args.debug:
                 logging.debug(f"Executing command: {' '.join(cmd)}")
             result = subprocess.run(cmd, capture_output=True, text=True)
             if self.args.debug:
                 logging.debug(f"Command output: {result.stdout}\nErrors: {result.stderr}")
+            cached_images = [f for f in os.listdir(self.ai_rename_dir) if f.startswith(os.path.basename(base_name)) and f.endswith('.png')]
         else:
-            logging.info(f"Images for {file_path} already exist, skipping conversion.")
-
-        # Scan for generated image files
-        image_files = [f for f in os.listdir(os.path.dirname(base_name)) if f.startswith(os.path.basename(base_name)) and f.endswith('.png')]
-        image_files.sort()
+            logging.info(f"Using cached images for {file_path}")
 
         ocr_text = ""
-        for image_file in image_files:
-            page_image = os.path.join(os.path.dirname(base_name), image_file)
+        for image_file in sorted(cached_images):
+            page_image = os.path.join(self.ai_rename_dir, image_file)
+            bw_image = f"{page_image}_bw.png"
 
-            # Preprocess the image
-            cmd = ['mogrify', '-contrast', '-sharpen', '0x1', page_image]
-            if self.args.debug:
-                logging.debug(f"Executing command: {' '.join(cmd)}")
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if self.args.debug:
-                logging.debug(f"Command output: {result.stdout}\nErrors: {result.stderr}")
+            if not os.path.exists(bw_image):
+                # Preprocess the image
+                cmd = ['mogrify', '-contrast', '-sharpen', '0x1', page_image]
+                if self.args.debug:
+                    logging.debug(f"Executing command: {' '.join(cmd)}")
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                if self.args.debug:
+                    logging.debug(f"Command output: {result.stdout}\nErrors: {result.stderr}")
 
-            cmd = ['magick', 'convert', page_image, '-threshold', '50%', f"{page_image}_bw.png"]
-            if self.args.debug:
-                logging.debug(f"Executing command: {' '.join(cmd)}")
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if self.args.debug:
-                logging.debug(f"Command output: {result.stdout}\nErrors: {result.stderr}")
+                cmd = ['magick', 'convert', page_image, '-threshold', '50%', bw_image]
+                if self.args.debug:
+                    logging.debug(f"Executing command: {' '.join(cmd)}")
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                if self.args.debug:
+                    logging.debug(f"Command output: {result.stdout}\nErrors: {result.stderr}")
+            else:
+                logging.info(f"Using cached preprocessed image {bw_image}")
 
             # Perform OCR on the preprocessed image
             cmd = [
-                'tesseract', f"{page_image}_bw.png", 'stdout',
+                'tesseract', bw_image, 'stdout',
                 '-l', self.config['LANGUAGE'],
                 '--dpi', '300',
                 '--psm', '6',
                 '--oem', '1'
             ]
             if self.args.debug:
-                logging.debug(f"Executing command: {' '.join(cmd)}")
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if self.args.debug:
-                logging.debug(f"Command output: {result.stdout}\nErrors: {result.stderr}")
-            ocr_text += result.stdout + "\n\n"  # Add page break between pages
-
-            # Clean up temporary files
-            if not self.args.debug:
-                os.remove(page_image)
-                os.remove(f"{page_image}_bw.png")
+                logging.debug(f"Executing tesseract command: {' '.join(cmd)}")
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                ocr_text += result.stdout + "\n\n"  # Add page break between pages
+                if self.args.debug:
+                    logging.debug(f"Tesseract output: {result.stdout}")
+            except subprocess.CalledProcessError as e:
+                logging.error(f"Tesseract error: {e}")
+                logging.error(f"Tesseract stderr: {e.stderr}")
+            except UnicodeDecodeError as e:
+                logging.error(f"Unicode decode error: {e}")
+                logging.error(f"Trying to decode with utf-8 ignoring errors")
+                result = subprocess.run(cmd, capture_output=True, check=True)
+                ocr_text += result.stdout.decode('utf-8', errors='ignore') + "\n\n"
 
         return ocr_text
 
     def perform_image_ocr(self, file_path: str) -> str:
         base_name = os.path.splitext(file_path)[0]
-        bw_file_path = f"{base_name}_bw.png"
+        bw_file_path = os.path.join(self.ai_rename_dir, f"{os.path.basename(base_name)}_bw.png")
 
         # Check if the image has already been processed
-        if os.path.exists(bw_file_path):
-            logging.info(f"Processed image '{bw_file_path}' already exists, skipping preprocessing.")
-        else:
+        if not os.path.exists(bw_file_path):
             # Preprocess the image
             cmd = ['mogrify', '-contrast', '-sharpen', '0x1', file_path]
             if self.args.debug:
@@ -229,6 +235,8 @@ class FileProcessor:
             result = subprocess.run(cmd, capture_output=True, text=True)
             if self.args.debug:
                 logging.debug(f"Command output: {result.stdout}\nErrors: {result.stderr}")
+        else:
+            logging.info(f"Using cached preprocessed image {bw_file_path}")
 
         # Perform OCR on the preprocessed image
         cmd = [
@@ -239,40 +247,54 @@ class FileProcessor:
             '--oem', '1'
         ]
         if self.args.debug:
-            logging.debug(f"Executing command: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if self.args.debug:
-            logging.debug(f"Command output: {result.stdout}\nErrors: {result.stderr}")
-        ocr_text = result.stdout
-
-        # Clean up temporary file
-        if not self.args.debug:
-            os.remove(bw_file_path)
+            logging.debug(f"Executing tesseract command: {' '.join(cmd)}")
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            ocr_text = result.stdout
+            if self.args.debug:
+                logging.debug(f"Tesseract output: {ocr_text}")
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Tesseract error: {e}")
+            logging.error(f"Tesseract stderr: {e.stderr}")
+            ocr_text = ""
+        except UnicodeDecodeError as e:
+            logging.error(f"Unicode decode error: {e}")
+            logging.error(f"Trying to decode with utf-8 ignoring errors")
+            result = subprocess.run(cmd, capture_output=True, check=True)
+            ocr_text = result.stdout.decode('utf-8', errors='ignore')
 
         return ocr_text
 
     def call_llm(self, prompt: str) -> str:
-        try:
-            logging.debug(f"prompt:\n---\n{prompt}\n---\n")
+        for attempt in range(2):
+            try:
+                logging.debug(f"prompt:\n---\n{prompt}\n---\n")
 
-            response = requests.post(
-                'http://localhost:11434/api/generate',
-                json={"model": "llama3.1", "stream": False, "prompt": prompt, "max_tokens": 100},
-                timeout=90
-            )
-            response.raise_for_status()
-            response_data = response.json()
-
-            llm_response = response_data.get('response', '').strip()
-            logging.debug(f"response:\n---\n{llm_response}\n---\n")
-
-            return llm_response
-        except requests.RequestException as e:
-            handle_exception("LLM API call", e)
-            return ''
-        except json.JSONDecodeError as e:
-            handle_exception("LLM response parsing", e)
-            return ''
+                response = requests.post(
+                    'http://localhost:11434/api/generate',
+                    json={"model": "llama3.1", "stream": False, "prompt": prompt, "max_tokens": 100},
+                    timeout=90
+                )
+                if response.status_code == 200:
+                    response_data = response.json()
+                    llm_response = response_data.get('response', '').strip()
+                    logging.debug(f"response:\n---\n{llm_response}\n---\n")
+                    return llm_response
+                elif attempt == 0:
+                    logging.warning(f"Request failed with status code {response.status_code}. Retrying...")
+                    continue
+                else:
+                    response.raise_for_status()
+            except requests.RequestException as e:
+                if attempt == 0:
+                    logging.warning(f"Request failed: {str(e)}. Retrying...")
+                    continue
+                handle_exception("LLM API call", e)
+                return ''
+            except json.JSONDecodeError as e:
+                handle_exception("LLM response parsing", e)
+                return ''
+        return ''
 
     def process_pdf(self, file_path: str, file_name: str, done_dir: str, orig_dir: str) -> None:
         ocr_text = self.perform_ocr(file_path)
