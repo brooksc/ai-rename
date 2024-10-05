@@ -338,11 +338,17 @@ class FileProcessor:
         test_prompt = "Test prompt: Please respond with 'Test successful'."
         logging.info("Testing LLM connectivity...")
         response = self.call_llm(test_prompt)
-        if response == "Test successful":
-            logging.info("LLM connectivity test successful.")
-            return True
-        else:
-            logging.error("LLM connectivity test failed.")
+        try:
+            response_data = response.json()
+            llm_response = response_data.get('response', '').strip()
+            if llm_response == "Test successful":
+                logging.info("LLM connectivity test successful.")
+                return True
+            else:
+                logging.error("LLM connectivity test failed.")
+                return False
+        except json.JSONDecodeError as e:
+            logging.error(f"Error parsing LLM response: {str(e)}")
             return False
 
     def process_pdf(self, file_path: str, file_name: str, done_dir: str, orig_dir: str) -> None:
