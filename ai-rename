@@ -334,6 +334,17 @@ class FileProcessor:
                 return ''
         return ''
 
+    def test_llm_connectivity(self) -> bool:
+        test_prompt = "Test prompt: Please respond with 'Test successful'."
+        logging.info("Testing LLM connectivity...")
+        response = self.call_llm(test_prompt)
+        if response == "Test successful":
+            logging.info("LLM connectivity test successful.")
+            return True
+        else:
+            logging.error("LLM connectivity test failed.")
+            return False
+
     def process_pdf(self, file_path: str, file_name: str, done_dir: str, orig_dir: str) -> None:
         ocr_text = self.perform_ocr(file_path)
         if not ocr_text:
@@ -465,6 +476,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument('-d', '--debug', action='store_true', help='Enable debug logging. Default is off.')
     parser.add_argument('--progress-bar', action='store_true', help='Enable progress bar during file processing. Default is off.')
     parser.add_argument('--keep-original', action='store_true', default=False, help='Preserve the original file after renaming. Default is off.')
+    parser.add_argument('-t', '--test-llm', action='store_true', help='Test connectivity with the LLM by sending a test prompt and verifying a response. Default is off.')
     return parser.parse_args()
 
 def read_config() -> Dict[str, Any]:
@@ -536,6 +548,11 @@ def main():
     check_required_commands()
 
     processor = FileProcessor(config, args)
+
+    if args.test_llm:
+        if not processor.test_llm_connectivity():
+            logging.error("LLM connectivity test failed. Exiting.")
+            sys.exit(1)
 
     if os.path.isfile(args.directory):
         dirs = processor.setup_directories(os.path.dirname(args.directory))
