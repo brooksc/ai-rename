@@ -533,7 +533,8 @@ def main():
     processor = FileProcessor(config, args)
 
     if os.path.isfile(args.directory):
-        processor.process_single_file(os.path.dirname(args.directory), os.path.basename(args.directory), {}, 0, None)
+        dirs = processor.setup_directories(args.directory)
+        processor.process_single_file(os.path.dirname(args.directory), os.path.basename(args.directory), dirs, 0, None)
     elif not os.path.isdir(args.directory):
         create_dir = input(f"The directory '{args.directory}' does not exist. Do you want to create it? (y/n): ")
         if create_dir.lower() == 'y':
