@@ -367,6 +367,9 @@ class FileProcessor:
         new_filename = f"{cleaned_filename}{file_extension}"
         new_filepath = os.path.join(done_dir, new_filename)
 
+        # Log the new filename
+        logging.info(f"Would rename '{file_name}' to '{new_filename}'")
+
         try:
             self.move_or_copy_file(file_path, new_filepath, orig_dir, file_name)
         except OSError as e:
