@@ -11,6 +11,7 @@ import progressbar
 import requests
 import re
 from typing import Dict, Any
+import tempfile
 # from pathlib import Path
 
 def handle_exception(operation: str, exception: Exception) -> None:
@@ -51,8 +52,13 @@ class FileProcessor:
         self.args = args
         self.extension_to_function = {'.pdf': self.process_pdf, '.jpg': self.process_image, '.png': self.process_image}
         check_required_commands()
-        self.ai_rename_dir = os.path.expanduser('~/tmp/ai-rename')
+        self.temp_dir = tempfile.TemporaryDirectory(prefix='ai_rename_')
+        self.ai_rename_dir = self.temp_dir.name
         self.create_directory(self.ai_rename_dir)
+        if self.args.debug:
+            logging.debug(f"Temporary directory created: {self.ai_rename_dir}")
+        else:
+            self.temp_dir.cleanup()
 
     def setup_directories(self, base_dir: str) -> Dict[str, str]:
         done_dir = os.path.join(base_dir, 'done')
