@@ -533,17 +533,13 @@ def main():
     processor = FileProcessor(config, args)
 
     if os.path.isfile(args.directory):
-        dirs = processor.setup_directories(args.directory)
+        dirs = processor.setup_directories(os.path.dirname(args.directory))
         processor.process_single_file(os.path.dirname(args.directory), os.path.basename(args.directory), dirs, 0, None)
-    elif not os.path.isdir(args.directory):
-        create_dir = input(f"The directory '{args.directory}' does not exist. Do you want to create it? (y/n): ")
-        if create_dir.lower() == 'y':
-            processor.create_directory(args.directory)
-        else:
-            logging.error(f"The directory '{args.directory}' does not exist.")
-            sys.exit(1)
-
-    processor.process_files(args.directory)
+    elif os.path.isdir(args.directory):
+        processor.process_files(args.directory)
+    else:
+        logging.error(f"The path '{args.directory}' does not exist.")
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()
