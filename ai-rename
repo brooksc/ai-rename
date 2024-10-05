@@ -448,6 +448,7 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Process files in a directory using OCR and AI to generate filenames.')
     parser.add_argument('directory', type=str, help='The directory containing files to process.')
     parser.add_argument('-n', '--dry-run', action='store_true', help='Simulate the renaming process without actually renaming files.')
+    parser.add_argument('-r', '--rename', action='store_true', help='Rename the files after processing.')
     parser.add_argument('-m', '--move', action='store_true', help='Move the files after processing.')
     parser.add_argument('-c', '--copy', action='store_true', help='Copy the files after processing.')
     parser.add_argument('-s', '--summarize', action='store_true', help='Enable summarization of the OCR text.')
