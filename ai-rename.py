@@ -12,6 +12,8 @@ import litellm
 import re
 from typing import Dict, Any
 import tempfile
+import requests
+import json
 # from pathlib import Path
 
 def handle_exception(operation: str, exception: Exception) -> None:
