@@ -309,7 +309,7 @@ class FileProcessor:
                 logging.debug(f"prompt:\n---\n{prompt}\n---\n")
 
                 response = litellm.completion(
-                    model="llama3.1",
+                    model="huggingface/starcoder",  # Specify the LLM provider
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=100,
                     stream=False
@@ -317,7 +317,7 @@ class FileProcessor:
                 llm_response = response['choices'][0]['message']['content'].strip()
                 logging.debug(f"response:\n---\n{llm_response}\n---\n")
                 return llm_response
-            except litellm.exceptions.RequestException as e:
+            except litellm.exceptions.BadRequestError as e:
                 if attempt == 0:
                     logging.warning(f"Request failed: {str(e)}. Retrying...")
                     continue
