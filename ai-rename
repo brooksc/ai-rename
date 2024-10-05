@@ -335,12 +335,12 @@ class FileProcessor:
         return ''
 
     def test_llm_connectivity(self) -> bool:
-        test_prompt = "Test prompt: Please respond with 'Test successful'."
+        test_prompt = "Test prompt: Please respond with 'Test successful'"
         logging.info("Testing LLM connectivity...")
         response = self.call_llm(test_prompt)
         try:
             llm_response = response.strip()
-            if llm_response == "Test successful":
+            if "Test successful" in llm_response:
                 logging.info("LLM connectivity test successful.")
                 return True
             else:
@@ -554,11 +554,6 @@ def main():
     check_required_commands()
 
     processor = FileProcessor(config, args)
-
-    if args.test_llm:
-        if not processor.test_llm_connectivity():
-            logging.error("LLM connectivity test failed. Exiting.")
-            sys.exit(1)
 
     if args.test_llm:
         if not processor.test_llm_connectivity():
