@@ -304,12 +304,13 @@ class FileProcessor:
         return ocr_text
 
     def call_llm(self, prompt: str) -> str:
+        model = self.config.get("MODEL", "gpt2")
         for attempt in range(2):
             try:
                 logging.debug(f"prompt:\n---\n{prompt}\n---\n")
 
                 response = litellm.completion(
-                    model="huggingface/starcoder",  # Specify the LLM provider
+                    model=f"huggingface/{model}",  # Specify the LLM provider
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=100,
                     stream=False
@@ -476,6 +477,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument('--progress-bar', action='store_true', help='Enable progress bar during file processing. Default is off.')
     parser.add_argument('--keep-original', action='store_true', default=False, help='Preserve the original file after renaming. Default is off.')
     parser.add_argument('-t', '--test-llm', action='store_true', help='Test connectivity with the LLM by sending a test prompt and verifying a response. Default is off.')
+    parser.add_argument('--model', type=str, default=None, help='Specify the model to use for LLM. Default is gpt2.')
     return parser.parse_args()
 
 def read_config() -> Dict[str, Any]:
@@ -543,6 +545,9 @@ def main():
     if not config:
         config = create_config()
         write_config(config)
+
+    if args.model:
+        config["MODEL"] = args.model
 
     check_required_commands()
 
