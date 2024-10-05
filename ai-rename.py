@@ -493,7 +493,12 @@ def read_config() -> Dict[str, Any]:
     config_file = 'config.yaml'
     try:
         with open(config_file, 'r') as f:
-            return yaml.safe_load(f)
+            config = yaml.safe_load(f)
+            if 'API_BASE' not in config:
+                raise ValueError("API_BASE is not specified in the configuration file.")
+            if 'MODEL' not in config:
+                raise ValueError("MODEL is not specified in the configuration file.")
+            return config
     except FileNotFoundError as e:
         handle_exception("config file reading", e)
         return {}
