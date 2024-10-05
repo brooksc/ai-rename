@@ -78,10 +78,12 @@ class FileProcessor:
         self.create_directory(self.ai_rename_dir)
         if self.args.debug:
             logging.debug(f"Temporary directory created: {self.ai_rename_dir}")
-        else:
-            self.temp_dir.cleanup()
+        # else:
+        #     self.temp_dir.cleanup()
         # Set default value for keep_original if not provided
         self.args.keep_original = getattr(self.args, 'keep_original', True)
+    def cleanup(self):
+        self.temp_dir.cleanup()
 
     def setup_directories(self, base_dir: str) -> Dict[str, str]:
         done_dir = os.path.join(base_dir, 'done')
@@ -540,6 +542,7 @@ def main():
     else:
         logging.error(f"The path '{args.directory}' does not exist.")
         sys.exit(1)
-
+    if not args.debug:
+        processor.cleanup()
 if __name__ == '__main__':
     main()
