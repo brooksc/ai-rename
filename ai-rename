@@ -89,7 +89,7 @@ class FileProcessor:
         if self.args.rename or self.args.move:
             self.create_directory(done_dir)
             self.create_directory(orig_dir)
-        return {'DONE_DIR': done_dir, 'ORIG_DIR': orig_dir}
+        return {'DONE_DIR': done_dir if self.args.rename or self.args.move else None, 'ORIG_DIR': orig_dir if self.args.rename or self.args.move else None}
 
     def create_directory(self, dir_path: str) -> None:
         try:
@@ -129,7 +129,7 @@ class FileProcessor:
 
     def process_single_file(self, dir_path: str, file_name: str, dirs: Dict[str, str],
                             file_count: int, bar: progressbar.ProgressBar) -> None:
-        if 'DONE_DIR' not in dirs or 'ORIG_DIR' not in dirs:
+        if (dirs['DONE_DIR'] is None or dirs['ORIG_DIR'] is None) and (self.args.rename or self.args.move):
             logging.error("Required directories not initialized.")
             return
 
