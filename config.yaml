@@ -1,0 +1,6 @@
+LANGUAGE: eng
+ORIG_SUBDIR: orig
+MODEL: llama3.2:latest
+prompts:
+  filename_generation: Generate a suitable filename for the following file content that briefly summarizes the content, using no more than 120 characters.
+  summarization: Summarize the following text:

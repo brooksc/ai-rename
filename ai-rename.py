@@ -2,7 +2,7 @@
 
 import os
 import sys
-import json
+import yaml
 import shutil
 import logging
 import argparse
@@ -482,33 +482,33 @@ def parse_arguments() -> argparse.Namespace:
 
 def read_config() -> Dict[str, Any]:
     """
-    Read the configuration from a JSON file.
+    Read the configuration from a YAML file.
 
     Returns:
         Dict[str, Any]: The configuration dictionary.
     """
-    config_file = 'config.json'
+    config_file = 'config.yaml'
     try:
         with open(config_file, 'r') as f:
-            return json.load(f)
+            return yaml.safe_load(f)
     except FileNotFoundError as e:
         handle_exception("config file reading", e)
         return {}
-    except json.JSONDecodeError as e:
+    except yaml.YAMLError as e:
         handle_exception("config file parsing", e)
         return {}
 
 def write_config(config: Dict[str, Any]) -> None:
     """
-    Write the configuration to a JSON file.
+    Write the configuration to a YAML file.
 
     Args:
         config (Dict[str, Any]): The configuration dictionary to write.
     """
-    config_file = 'config.json'
+    config_file = 'config.yaml'
     try:
         with open(config_file, 'w') as f:
-            json.dump(config, f, indent=4)
+            yaml.dump(config, f, default_flow_style=False)
     except IOError as e:
         handle_exception("config file writing", e)
 
