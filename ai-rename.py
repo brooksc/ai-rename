@@ -400,8 +400,9 @@ class FileProcessor:
         }
 
         try:
+            api_base = self.config.get('API_BASE', 'https://api-inference.huggingface.co/models/gpt2')
             response = requests.post(
-                'https://api-inference.huggingface.co/models/gpt2',
+                api_base,
                 headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.config['API_TOKEN']}"},
                 data=json.dumps(payload),
                 timeout=90
