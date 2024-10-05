@@ -115,6 +115,9 @@ class FileProcessor:
             if bar:
                 bar.finish()
 
+            if self.args.dry_run:
+                logging.info("Dry run completed. No files were renamed.")
+
     def count_files(self, dir_path: str) -> int:
         return sum(1 for file_name in os.listdir(dir_path)
                    if os.path.isfile(os.path.join(dir_path, file_name))
@@ -400,11 +403,15 @@ class FileProcessor:
         return ''
 
     def move_or_copy_file(self, file_path: str, new_filepath: str, orig_dir: str, file_name: str) -> None:
+        if self.args.dry_run:
+            logging.info(f"Dry run: '{file_path}' would be renamed to '{new_filepath}'")
+            return
+
         try:
             if self.args.move:
                 shutil.move(file_path, new_filepath)
                 logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}' and moved")
-            elif self.args.keep_original:
+            elif self.args.copy:
                 shutil.copy2(file_path, new_filepath)
                 shutil.move(file_path, os.path.join(orig_dir, file_name))
                 logging.info(f"'{file_path}' was successfully renamed to '{new_filepath}' and copied")
@@ -440,7 +447,9 @@ def parse_arguments() -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser(description='Process files in a directory using OCR and AI to generate filenames.')
     parser.add_argument('directory', type=str, help='The directory containing files to process.')
-    parser.add_argument('-r', '--rename', action='store_true', help='Trigger the rename function.')
+    parser.add_argument('-n', '--dry-run', action='store_true', help='Simulate the renaming process without actually renaming files.')
+    parser.add_argument('-m', '--move', action='store_true', help='Move the files after processing.')
+    parser.add_argument('-c', '--copy', action='store_true', help='Copy the files after processing.')
     parser.add_argument('-s', '--summarize', action='store_true', help='Enable summarization of the OCR text.')
     parser.add_argument('-m', '--move', action='store_true', help='Move the files after processing.')
     parser.add_argument('-o', '--keep-ocr-output', action='store_true', help='Keep a copy of the OCR output per file in the same directory.')
