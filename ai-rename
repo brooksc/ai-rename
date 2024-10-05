@@ -129,6 +129,10 @@ class FileProcessor:
 
     def process_single_file(self, dir_path: str, file_name: str, dirs: Dict[str, str],
                             file_count: int, bar: progressbar.ProgressBar) -> None:
+        if 'DONE_DIR' not in dirs or 'ORIG_DIR' not in dirs:
+            logging.error("Required directories not initialized.")
+            return
+
         file_path = os.path.join(dir_path, file_name)
         file_extension = os.path.splitext(file_name)[1].lower()
 
