@@ -1,0 +1,10 @@
+include LICENSE
+include README.md
+include requirements.txt
+include config.yaml.example
+include scripts/init_environment.py
+
+recursive-include tests *.py
+recursive-include pdf_manager *.py
+recursive-exclude * __pycache__
+recursive-exclude * *.py[cod] 

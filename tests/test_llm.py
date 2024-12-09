@@ -1,110 +1,162 @@
 import pytest
-from ai_rename import FileProcessor
+from unittest.mock import patch, MagicMock
+from datetime import datetime, timedelta
+from pdf_manager.llm.provider import LLMProvider
+from pdf_manager.llm.cache import LLMCache
+from pdf_manager.utils.logging import LLMError
 
-def test_call_llm(mock_litellm, sample_config):
-    """Test LLM API call functionality."""
-    processor = FileProcessor(sample_config, type('Args', (), {'debug': True})())
-    
-    # Test successful API call
-    response = processor.call_llm("Test prompt")
-    assert response == "Test Response"
-    
-    # Test API error handling
-    mock_litellm.side_effect = Exception("API Error")
-    response = processor.call_llm("Test prompt")
-    assert response == ""
-    
-    # Test response parsing error
-    mock_litellm.side_effect = None
-    mock_litellm.return_value = {}  # Invalid response format
-    response = processor.call_llm("Test prompt")
-    assert response == ""
+@pytest.fixture
+def mock_config():
+    """Create mock configuration."""
+    return {
+        'provider': 'openai',
+        'model': 'gpt-4',
+        'fallback_provider': 'anthropic',
+        'fallback_model': 'claude-3-opus',
+        'cache': {
+            'enabled': True,
+            'directory': '/tmp/cache',
+            'max_age': 3600
+        },
+        'max_chunk_size': 4000,
+        'summary_length': 250,
+        'litellm_config': {
+            'api_key': 'test_key',
+            'organization': None
+        }
+    }
 
-def test_test_llm_connectivity(mock_litellm, sample_config):
-    """Test LLM connectivity test function."""
-    processor = FileProcessor(sample_config, type('Args', (), {'debug': True})())
-    
-    # Test successful connection
-    mock_litellm.return_value = {
-        'choices': [{
-            'message': {
-                'content': 'Test successful'
-            }
-        }]
-    }
-    assert processor.test_llm_connectivity() is True
-    
-    # Test failed connection
-    mock_litellm.return_value = {
-        'choices': [{
-            'message': {
-                'content': 'Wrong response'
-            }
-        }]
-    }
-    assert processor.test_llm_connectivity() is False
-    
-    # Test API error
-    mock_litellm.side_effect = Exception("API Error")
-    assert processor.test_llm_connectivity() is False
+@pytest.fixture
+def mock_db():
+    """Create mock database."""
+    return MagicMock()
 
-def test_generate_filename_with_llm(mock_requests, sample_config):
-    """Test filename generation using LLM."""
-    processor = FileProcessor(sample_config, type('Args', (), {'debug': True})())
-    
-    # Test successful filename generation
-    mock_requests.return_value.json.return_value = {
-        'choices': [{
-            'message': {
-                'content': 'Generated Filename'
-            }
-        }]
-    }
-    filename = processor.generate_filename("Sample document content")
-    assert filename == "Generated Filename"
-    
-    # Test API error
-    mock_requests.side_effect = Exception("API Error")
-    filename = processor.generate_filename("Sample document content")
-    assert filename == ""
-    
-    # Test invalid response format
-    mock_requests.side_effect = None
-    mock_requests.return_value.json.return_value = {}
-    filename = processor.generate_filename("Sample document content")
-    assert filename == ""
+@pytest.fixture
+def llm_provider(mock_config, mock_db):
+    """Create LLM provider with mocked configuration."""
+    return LLMProvider(mock_config, mock_db)
 
-def test_summarize_with_llm(mock_litellm, temp_dir, sample_config):
-    """Test document summarization using LLM."""
-    processor = FileProcessor(sample_config, type('Args', (), {
-        'debug': True,
-        'summarize': True
-    })())
+def test_llm_initialization(llm_provider):
+    """Test LLM provider initialization."""
+    assert llm_provider.config['provider'] == 'openai'
+    assert llm_provider.config['model'] == 'gpt-4'
+
+@patch('litellm.completion')
+def test_llm_call(mock_completion, llm_provider):
+    """Test LLM API call."""
+    # Mock response
+    mock_response = MagicMock()
+    mock_response.choices = [
+        MagicMock(message=MagicMock(content="Test response"))
+    ]
+    mock_response.usage = MagicMock(total_tokens=10)
+    mock_completion.return_value = mock_response
     
-    # Create test file
-    test_file = "test_doc.txt"
-    test_path = f"{temp_dir}/{test_file}"
-    with open(test_path, 'w') as f:
-        f.write("Test document content")
+    # Make call
+    result = llm_provider._make_llm_call("Test prompt", "openai/gpt-4")
     
-    # Test successful summarization
-    mock_litellm.return_value = {
-        'choices': [{
-            'message': {
-                'content': 'Document Summary'
-            }
-        }]
+    assert result['content'] == "Test response"
+    assert result['tokens_used'] == 10
+    assert result['model'] == "openai/gpt-4"
+
+@patch('litellm.completion')
+def test_llm_fallback(mock_completion, llm_provider):
+    """Test LLM fallback behavior."""
+    # Make first call fail
+    mock_completion.side_effect = [
+        Exception("API Error"),
+        MagicMock(
+            choices=[MagicMock(message=MagicMock(content="Fallback response"))],
+            usage=MagicMock(total_tokens=5)
+        )
+    ]
+    
+    result = llm_provider._make_llm_call("Test prompt", "openai/gpt-4")
+    
+    assert result['content'] == "Fallback response"
+    assert result['model'] == "anthropic/claude-3-opus"
+
+def test_cache_key_generation(llm_provider):
+    """Test cache key generation."""
+    key1 = llm_provider._get_cache_key("test prompt", "model1")
+    key2 = llm_provider._get_cache_key("test prompt", "model1")
+    key3 = llm_provider._get_cache_key("test prompt", "model2")
+    
+    assert key1 == key2  # Same prompt and model should generate same key
+    assert key1 != key3  # Different models should generate different keys
+
+@patch('litellm.completion')
+def test_process_text(mock_completion, llm_provider):
+    """Test text processing with different operations."""
+    mock_response = MagicMock(
+        choices=[MagicMock(message=MagicMock(content="Processed text"))],
+        usage=MagicMock(total_tokens=10)
+    )
+    mock_completion.return_value = mock_response
+    
+    operations = ['summarize', 'categorize', 'tag', 'extract_metadata']
+    
+    for operation in operations:
+        result = llm_provider.process_text("Test text", operation)
+        assert result['content'] == "Processed text"
+        assert not result.get('cached', False)
+
+def test_invalid_operation(llm_provider):
+    """Test handling of invalid operation."""
+    with pytest.raises(LLMError, match="Unknown operation"):
+        llm_provider.process_text("Test text", "invalid_operation")
+
+@pytest.fixture
+def llm_cache(mock_config, mock_db):
+    """Create LLM cache instance."""
+    return LLMCache(mock_db, mock_config)
+
+def test_cache_get_set(llm_cache, mock_db):
+    """Test cache get and set operations."""
+    # Mock database response
+    mock_db.conn.execute.return_value.fetchone.return_value = {
+        'response': 'cached response',
+        'tokens_used': 5,
+        'model_used': 'test-model',
+        'created_at': datetime.utcnow().isoformat()
     }
-    processor.generate_summary(test_path, test_file)
     
-    # Verify summary file was created
-    summary_file = f"{processor.ai_rename_dir}/{test_file.replace('.txt', '_summary.txt')}"
-    assert os.path.exists(summary_file)
-    with open(summary_file, 'r') as f:
-        assert f.read() == "Document Summary"
+    # Test cache hit
+    result = llm_cache.get('test_hash')
+    assert result['response'] == 'cached response'
+    assert result['cached'] is True
     
-    # Test failed summarization
-    mock_litellm.side_effect = Exception("API Error")
-    processor.generate_summary(test_path, test_file)
-    # Should not create new summary file on error
-    assert not os.path.exists(f"{processor.ai_rename_dir}/failed_summary.txt") 
+    # Test cache set
+    llm_cache.set('test_hash', 'new response', 10, 'test-model')
+    mock_db.conn.execute.assert_called()
+
+def test_cache_expiration(llm_cache, mock_db):
+    """Test cache expiration handling."""
+    # Mock expired cache entry
+    mock_db.conn.execute.return_value.fetchone.return_value = {
+        'response': 'old response',
+        'created_at': (datetime.utcnow() - timedelta(hours=2)).isoformat()
+    }
+    
+    # Should return None for expired entry
+    result = llm_cache.get('test_hash')
+    assert result is None
+
+def test_cache_stats(llm_cache, mock_db):
+    """Test cache statistics."""
+    # Mock statistics query results
+    mock_db.conn.execute.return_value.fetchone.return_value = {
+        'count': 10,
+        'total_size': 1000,
+        'total_tokens': 500
+    }
+    mock_db.conn.execute.return_value.fetchall.return_value = [
+        {'model_used': 'gpt-4', 'count': 5},
+        {'model_used': 'claude', 'count': 5}
+    ]
+    
+    stats = llm_cache.get_stats()
+    
+    assert stats['count'] == 10
+    assert stats['total_tokens'] == 500
+    assert len(stats['models']) == 2

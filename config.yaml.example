@@ -1,0 +1,53 @@
+# PDF Manager Configuration
+
+# Paths for document storage and processing
+paths:
+  # Main library directory for organized documents
+  library: ~/Documents/PDFLibrary
+  # Directory for backup copies
+  backup: ~/Documents/PDFLibrary/backups
+  # Temporary directory for processing
+  temp: /tmp/pdf_manager
+
+# Document processing settings
+processing:
+  # Enable OCR for scanned documents
+  ocr_enabled: false
+  # Enable content analysis with LLM
+  content_analysis: true
+  # Maximum concurrent processing threads
+  max_threads: 2
+  # Allowed file types
+  allowed_types:
+    - application/pdf
+  # Maximum file size in bytes (50MB)
+  max_file_size: 52428800
+
+# LLM (Language Model) settings
+llm:
+  # Primary provider configuration
+  provider: openai
+  model: gpt-4
+  # Fallback provider configuration
+  fallback_provider: anthropic
+  fallback_model: claude-3-opus
+  
+  # Response caching settings
+  cache:
+    enabled: true
+    directory: ~/Documents/PDFLibrary/llm_cache
+    # Cache expiration in seconds (7 days)
+    max_age: 604800
+  
+  # Processing settings
+  max_chunk_size: 4000
+  summary_length: 250
+  auto_categorize: true
+  tag_generation: true
+
+# Database settings
+database:
+  # SQLite database path
+  path: ~/Documents/PDFLibrary/library.db
+  # Number of database backups to keep
+  backup_count: 3 

@@ -1,2 +1,18 @@
-litellm==1.47.0
-progressbar2
+click>=8.1.0
+PyMuPDF>=1.21.0
+pdfplumber>=0.7.0
+pytesseract>=0.3.9
+Pillow>=9.3.0
+litellm>=1.0.0
+rich>=13.0.0
+PyYAML>=6.0.0
+pathlib>=1.0.1
+python-dotenv>=0.19.0
+
+# Test dependencies
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-timeout>=2.1.0
+reportlab>=4.0.0  # For generating test PDFs
+psutil>=5.9.0  # For resource monitoring
+requests-mock>=1.11.0  # For mocking HTTP requests

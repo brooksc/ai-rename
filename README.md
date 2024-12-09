@@ -1,91 +1,180 @@
+NOTE: I'm in the middle of rewriting this and it's not functional.  Star if you're interested in this and you'll get a notice once I have a release ready.  
 
-# AI File Renamer
+# PDF Manager
 
-This Python script processes files in a specified directory, using Optical Character Recognition (OCR) to extract text from files, and then leverages an AI service to generate descriptive filenames based on the extracted text. The script is designed to work primarily with PDF and image files (e.g., JPG, PNG) and is capable of automatically organizing and renaming files according to the content.
+An intelligent document management system that leverages AI capabilities for PDF organization and analysis.
 
 ## Features
 
-- **OCR Support**: Extracts text from PDFs and images using Tesseract.
-- **AI-Powered Filename Generation**: Uses AI to generate descriptive filenames based on the content of the files.
-- **Original File Preservation**: Optionally retains original files while creating renamed copies.
-- **Customizable Settings**: Configure OCR language and subdirectory for original files through a simple configuration file.
-- **Error Handling**: Handles various edge cases, including invalid directories, failed OCR processing, and AI service errors.
+- Automated PDF processing and text extraction
+- Intelligent content analysis using LLMs
+- Automatic metadata extraction and categorization
+- Tag-based organization system
+- Smart search capabilities
+- Configurable document organization
+- LLM response caching for efficiency
+- Command-line interface with rich formatting
+
+## Requirements
+
+- Python 3.8+
+- Tesseract OCR (optional, for OCR support)
+- OpenAI API key or compatible LLM provider
 
 ## Installation
 
-### Prerequisites
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/pdf-manager.git
+   cd pdf-manager
+   ```
 
-Ensure you have the following installed on your Mac:
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-- **Homebrew**: If you don't have Homebrew installed, install it by running the following command:
+3. Install Tesseract OCR (optional):
+   - macOS: `brew install tesseract`
+   - Linux: `sudo apt-get install tesseract-ocr`
+   - Windows: Download installer from [GitHub](https://github.com/UB-Mannheim/tesseract/wiki)
 
-  ```bash
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  ```
+4. Create configuration:
+   ```bash
+   cp config.yaml.example config.yaml
+   ```
 
-- **Tesseract**: Install Tesseract using Homebrew:
+5. Set up environment variables:
+   ```bash
+   export OPENAI_API_KEY=your_api_key_here
+   # Optional: Set up fallback provider
+   export ANTHROPIC_API_KEY=your_anthropic_key_here
+   ```
 
-  ```bash
-  brew install tesseract
-  ```
+## Configuration
 
-- **pdftoppm**: Install the Poppler utilities, which include `pdftoppm`, using Homebrew:
+Edit `config.yaml` to customize:
 
-  ```bash
-  brew install poppler
-  ```
+- Library paths and organization
+- Processing settings
+- LLM provider and models
+- Caching behavior
+- Database location
 
-- **Python 3**: Ensure you have Python 3 installed. You can install it via Homebrew:
+Example configuration:
+```yaml
+paths:
+  library: ~/Documents/PDFLibrary
+  backup: ~/Documents/PDFLibrary/backups
+  temp: /tmp/pdf_manager
 
-  ```bash
-  brew install python
-  ```
+processing:
+  ocr_enabled: false
+  content_analysis: true
+  max_threads: 2
+  allowed_types: ['application/pdf']
+  max_file_size: 52428800  # 50MB
 
-### Python Dependencies
-
-Use `pip` to install the necessary Python packages:
-
-```bash
-pip install requests argparse
+llm:
+  provider: openai
+  model: gpt-4
+  fallback_provider: anthropic
+  fallback_model: claude-3-opus
+  cache:
+    enabled: true
+    directory: ~/Documents/PDFLibrary/llm_cache
+    max_age: 604800  # 7 days
 ```
-
-### AI Service
-
-Ensure you have an AI service running that can process requests as specified in the script. The AI service should be accessible at `http://localhost:1234/v1/chat/completions`.
 
 ## Usage
 
-### Command-Line Arguments
-
-- `directory` (required): The directory containing the files to process.
-- `-d`, `--debug` (optional): Enable debug logging for more verbose output.
-- `--keep-original` (optional): Set to `False` if you don't want to keep the original files after renaming. Default is `True`.
-
-### Example Usage
-
+### Process Files
 ```bash
-python3 ai_file_renamer.py /path/to/your/files -d --keep-original=False
+# Process single file
+pdf-manager process document.pdf
+
+# Process directory recursively
+pdf-manager -r process /path/to/documents/
 ```
 
-This command processes all files in the `/path/to/your/files` directory, enabling debug logging and moving the original files instead of keeping them.
+### Search Documents
+```bash
+# Search by content or metadata
+pdf-manager search "machine learning"
+```
 
-### Configuration File
+### Tag Management
+```bash
+# Add tags to document
+pdf-manager tag 123 important research reference
+```
 
-The script reads settings from a configuration file located at `~/.ai-rename`. If this file does not exist, the script will prompt you to enter the settings the first time it runs.
+### Organization
+```bash
+# Organize library
+pdf-manager organize
 
-- **LANGUAGE**: Specifies the language for OCR. Default is `eng`.
-- **ORIG_SUBDIR**: The subdirectory within the provided directory where original files are stored. Default is `orig`.
+# Force reorganization
+pdf-manager organize --force
+```
 
-## Example Workflow
+### Statistics
+```bash
+# View library statistics
+pdf-manager stats
+```
 
-1. **Prepare your files**: Place the files you want to process in a directory.
-2. **Run the script**: Use the command line to execute the script, specifying the directory.
-3. **Review the output**: The script will generate new filenames and move the processed files to a `done` subdirectory. If `--keep-original` is set to `True`, the original files will be preserved in a separate subdirectory.
+### Maintenance
+```bash
+# Clean up missing files
+pdf-manager cleanup
+```
 
-## Logging
+## Development
 
-The script logs its activity, including errors and AI responses, to the console. If the `--debug` flag is set, more detailed logs will be displayed.
+### Project Structure
+```
+pdf_manager/
+├── __init__.py
+├── cli/
+│   ├── __init__.py
+│   └── commands.py
+├── core/
+│   ├── __init__.py
+│   ├── database.py
+│   ├── pdf_processor.py
+│   └── organization.py
+├── llm/
+│   ├── __init__.py
+│   ├── provider.py
+│   └── cache.py
+└── utils/
+    ├── __init__.py
+    ├── config.py
+    └── logging.py
+```
+
+### Running Tests
+```bash
+pytest tests/
+```
 
 ## Contributing
 
-Contributions are welcome! If you find a bug or have a feature request, please open an issue or submit a pull request.
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- OpenAI for GPT models
+- Anthropic for Claude models
+- PyMuPDF and pdfplumber for PDF processing
+- Click for CLI interface
+- Rich for terminal formatting
