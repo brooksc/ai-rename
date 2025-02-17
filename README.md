@@ -2,6 +2,19 @@
 
 An intelligent file renaming utility that uses AI to suggest better file names based on content and optional taxonomy rules.
 
+
+## Background
+
+I wrote this script as I had 2100 PDF files I had collected from scanning documents, my emails, etc.  They had unhelpful filenames like SCAN09430.pdf.  With this script, I fed it a taxonomy document which outlines how I want the files organized, it parsed the PDF file using Gemini Flash 2.0 and found an appropriate path and filename.
+
+At this time this script is ONLY tested with Gemini Flash 2.0 and in particular it's using the Gemini capability to parse PDFs.
+
+You can run this script in interactive mode, at which point it will show you each suggestion and ask you to accept or skip.  You can view the doc, give an override to influence the path/filename recommendation or also discuss how to change the taxonomy to get the recommendation you want in the future.    
+
+I spent time earlier using a variety of local LLMs via ollama and I could never achieve the quality of classification that I was seeking, hence the dependency on Gemini.  
+
+The majority of this code has been written using Agentic AI development - via Cursor Composer and Windsurf Cascade.  The main reaosn I used both is I often hit the paid quota and would alternate between the two.  
+
 ## Installation
 
 Currently available via GitHub:
