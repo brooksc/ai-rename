@@ -1,180 +1,123 @@
-NOTE: I'm in the middle of rewriting this and it's not functional.  Star if you're interested in this and you'll get a notice once I have a release ready.  
+# AI-Rename
 
-# PDF Manager
-
-An intelligent document management system that leverages AI capabilities for PDF organization and analysis.
-
-## Features
-
-- Automated PDF processing and text extraction
-- Intelligent content analysis using LLMs
-- Automatic metadata extraction and categorization
-- Tag-based organization system
-- Smart search capabilities
-- Configurable document organization
-- LLM response caching for efficiency
-- Command-line interface with rich formatting
-
-## Requirements
-
-- Python 3.8+
-- Tesseract OCR (optional, for OCR support)
-- OpenAI API key or compatible LLM provider
+An intelligent file renaming utility that uses AI to suggest better file names based on content and optional taxonomy rules.
 
 ## Installation
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/pdf-manager.git
-   cd pdf-manager
-   ```
+Currently available via GitHub:
 
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+git clone https://github.com/yourusername/ai-rename.git
+cd ai-rename
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -e .
+```
 
-3. Install Tesseract OCR (optional):
-   - macOS: `brew install tesseract`
-   - Linux: `sudo apt-get install tesseract-ocr`
-   - Windows: Download installer from [GitHub](https://github.com/UB-Mannheim/tesseract/wiki)
+## Quick Start
 
-4. Create configuration:
-   ```bash
-   cp config.yaml.example config.yaml
-   ```
+```bash
+# Basic usage
+ai-rename path/to/files
 
-5. Set up environment variables:
-   ```bash
-   export OPENAI_API_KEY=your_api_key_here
-   # Optional: Set up fallback provider
-   export ANTHROPIC_API_KEY=your_anthropic_key_here
-   ```
+# With taxonomy rules
+ai-rename -t taxonomy.md path/to/files
+
+# Recursive with extension filter
+ai-rename -r -e .pdf -e .txt path/to/files
+
+# Run diagnostics
+ai-rename --diag
+```
+
+## Features
+
+- Content-aware file renaming using AI (Google Gemini)
+- Custom taxonomy rules in markdown format
+- Interactive UI with file preview
+- Dry run mode
+- Extension filtering
+- Recursive directory processing
+- System diagnostics
+- Secure API key management
+- Trash directory for manual review
 
 ## Configuration
 
-Edit `config.yaml` to customize:
+Configuration is stored in `~/.config/ai-rename/config.yaml`. Example:
 
-- Library paths and organization
-- Processing settings
-- LLM provider and models
-- Caching behavior
-- Database location
-
-Example configuration:
 ```yaml
-paths:
-  library: ~/Documents/PDFLibrary
-  backup: ~/Documents/PDFLibrary/backups
-  temp: /tmp/pdf_manager
-
-processing:
-  ocr_enabled: false
-  content_analysis: true
-  max_threads: 2
-  allowed_types: ['application/pdf']
-  max_file_size: 52428800  # 50MB
-
 llm:
-  provider: openai
-  model: gpt-4
-  fallback_provider: anthropic
-  fallback_model: claude-3-opus
-  cache:
-    enabled: true
-    directory: ~/Documents/PDFLibrary/llm_cache
-    max_age: 604800  # 7 days
+  model: gemini-2.0-flash  # Google's Gemini Flash 2.0 model
+  timeout: 30
+  temperature: 0.7
+
+extraction:
+  max_text_length: 10000
+  preview_length: 1000
+  supported_formats:
+    - .txt
+    - .pdf
+    - .doc
+    - .docx
+
+ui:
+  show_preview: true
+  confirm_rename: true
+  trash_dir: ~/.Trash/ai-rename
 ```
 
-## Usage
+### Environment Variables
 
-### Process Files
+Required environment variable for Google Gemini:
+
 ```bash
-# Process single file
-pdf-manager process document.pdf
-
-# Process directory recursively
-pdf-manager -r process /path/to/documents/
+export GEMINI_API_KEY=your_key_here
 ```
 
-### Search Documents
-```bash
-# Search by content or metadata
-pdf-manager search "machine learning"
+## Taxonomy Rules
+
+Create taxonomy rules in markdown format:
+
+```markdown
+# Document Organization
+
+## Person
+- Tax returns -> Person/{Name}/Tax/{YYYY}
+- Medical records -> Person/{Name}/Medical/{YYYY-MM-DD}_{Description}
+
+## Property
+- Insurance -> Property/{Address}/Insurance/{YYYY}
 ```
 
-### Tag Management
-```bash
-# Add tags to document
-pdf-manager tag 123 important research reference
-```
+## Command Reference
 
-### Organization
-```bash
-# Organize library
-pdf-manager organize
+- `-r, --recurse`: Process subdirectories
+- `-e, --extension`: Filter by file extension
+- `-t, --taxonomy`: Path to taxonomy rules
+- `-n, --dry-run`: Show suggestions without renaming
+- `-d, --debug`: Enable debug logging
+- `--diag`: Run system diagnostics
+- `--llm-provider`: LLM provider to use
+- `--llm-model`: LLM model to use
+- `--autoaccept`: Automatically accept all rename suggestions
+- `--trash`: Move files to trash instead of renaming
 
-# Force reorganization
-pdf-manager organize --force
-```
+## Interactive Commands
 
-### Statistics
-```bash
-# View library statistics
-pdf-manager stats
-```
-
-### Maintenance
-```bash
-# Clean up missing files
-pdf-manager cleanup
-```
+- `y`: Accept suggestion
+- `n`: Skip file
+- `e`: Edit suggestion
+- `v`: View file contents
+- `t`: Move to trash
+- `!`: Override AI with custom instructions
+- `q`: Quit program
+- `?`: Show help
 
 ## Development
 
-### Project Structure
-```
-pdf_manager/
-├── __init__.py
-├── cli/
-│   ├── __init__.py
-│   └── commands.py
-├── core/
-│   ├── __init__.py
-│   ├── database.py
-│   ├── pdf_processor.py
-│   └── organization.py
-├── llm/
-│   ├── __init__.py
-│   ├── provider.py
-│   └── cache.py
-└── utils/
-    ├── __init__.py
-    ├── config.py
-    └── logging.py
-```
-
-### Running Tests
-```bash
-pytest tests/
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+See [Development Guide](docs/development.md) for setup instructions and contribution guidelines.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- OpenAI for GPT models
-- Anthropic for Claude models
-- PyMuPDF and pdfplumber for PDF processing
-- Click for CLI interface
-- Rich for terminal formatting
+MIT License - see LICENSE file for details. 
