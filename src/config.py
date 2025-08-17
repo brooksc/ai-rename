@@ -31,7 +31,7 @@ class GeminiConfig:
     timeout: int = DEFAULT_GEMINI_TIMEOUT
     api_key: str | None = None
 
-    def validate(self):
+    def validate(self) -> None:
         """Validate configuration.
 
         Raises:
@@ -59,7 +59,7 @@ class TaxonomyConfig:
     path: Path = CONFIG_DIR / "taxonomy.md"
     backup_dir: Path = CONFIG_DIR / "backups"
 
-    def validate(self):
+    def validate(self) -> None:
         """Validate configuration.
 
         Raises:
@@ -76,7 +76,7 @@ class Config:
     gemini: GeminiConfig = field(default_factory=GeminiConfig)
     taxonomy: TaxonomyConfig = field(default_factory=TaxonomyConfig)
 
-    def validate(self):
+    def validate(self) -> None:
         """Validate configuration.
 
         Raises:

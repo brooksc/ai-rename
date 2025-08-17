@@ -270,37 +270,37 @@ LLM_RESPONSES = {
         "filename": "2024-01-15_consulting_invoice.pdf",
         "reasoning": "This is an invoice from ACME Corporation dated January 15, 2024 for consulting services. Following the Financial category taxonomy rules, it should be organized under the company name with the service date."
     },
-    
+
     "medical_report": {
         "suggested_path": "Person/Jane_Doe/Medical/2024-01-20_annual_physical.pdf",
         "filename": "2024-01-20_annual_physical.pdf",
         "reasoning": "Medical report for Jane Doe from January 20, 2024 annual physical examination. Categorized under Medical following taxonomy rules for personal medical documents."
     },
-    
+
     "insurance_eob": {
         "suggested_path": "Person/Robert_Wilson/Medical/Billing/2024-01-10_emergency_room_eob.pdf",
         "filename": "2024-01-10_emergency_room_eob.pdf",
         "reasoning": "Explanation of Benefits (EOB) for Robert Wilson's emergency room visit on January 10, 2024. Placed in Medical/Billing subcategory as specified in taxonomy rules."
     },
-    
+
     "property_deed": {
         "suggested_path": "Property/Sunny_Meadows/Purchase/2024-01-15_warranty_deed.pdf",
         "filename": "2024-01-15_warranty_deed.pdf",
         "reasoning": "Warranty deed dated January 15, 2024 for property at Sunny Meadows Subdivision. Categorized under Property/Purchase following taxonomy rules for property transactions."
     },
-    
+
     "tax_return": {
         "suggested_path": "Person/Michael_Taxpayer/Tax/2023/tax_return.pdf",
         "filename": "2023_tax_return.pdf",
         "reasoning": "Tax return for Michael Taxpayer for year 2023. Following taxonomy rules, tax returns use year-based naming and are stored in the Tax category."
     },
-    
+
     "pet_medical": {
         "suggested_path": "Pets/Fluffy/Medical/2024-01-25_annual_wellness_exam.pdf",
         "filename": "2024-01-25_annual_wellness_exam.pdf",
         "reasoning": "Veterinary medical record for pet Fluffy dated January 25, 2024. Categorized under Pets/Medical following taxonomy rules for pet healthcare documents."
     },
-    
+
     "financial_statement": {
         "suggested_path": "Person/Sarah_Williams/Financial/2023-12-31_bank_statement.pdf",
         "filename": "2023-12-31_bank_statement.pdf",
@@ -369,7 +369,7 @@ SAMPLE_CONFIGS = {
             "model": "gemini-2.0-flash"
         }
     },
-    
+
     "full": {
         "gemini": {
             "api_key": "full-test-key",
@@ -378,7 +378,7 @@ SAMPLE_CONFIGS = {
             "timeout": 60
         }
     },
-    
+
     "custom_model": {
         "gemini": {
             "api_key": "custom-key",

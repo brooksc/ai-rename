@@ -261,7 +261,7 @@ def _process_file(
                 if file_size > 1024 * 1024:  # 1MB in bytes
                     logger.warning(f"Skipping {path}: PDF file size {file_size/1024/1024:.2f}MB exceeds 1MB limit")
                     return True
-                
+
                 logger.debug("PDF file detected, will be passed directly to Gemini")
                 content = "<PDF file will be processed directly by Gemini>"
             else:
@@ -293,7 +293,7 @@ def _process_file(
             raise RenameError("Failed to get rename suggestion") from e
 
         # If promptjson enabled, rename the debug files to match input file and exit
-        if promptjson:
+        if promptjson and capture_dir:
             debug_files = {
                 "request.prompt": f"{path.stem}.prompt",
                 "response.json": f"{path.stem}.json"
@@ -310,7 +310,7 @@ def _process_file(
                         logger.debug(f"Renamed {src} to {dst}")
                     except Exception as e:
                         logger.error(f"Failed to rename debug file {src} to {dst}: {e}")
-            return  # Exit early when promptjson is True
+            return True  # Exit early when promptjson is True
 
         # Get document date
         try:
@@ -350,10 +350,9 @@ def _process_file(
         if dry_run:
             logger.info(f"Would rename {path} to {new_path}")
             logger.info(f"Reasoning: {suggestion.reasoning}")
-            return
+            return True
 
         # Create proposal for UI
-        from src.ui.interface import FileRenameProposal
         if ui is None:
             logger.error("UserInterface not initialized")
             return False
@@ -389,7 +388,7 @@ def _process_file(
         if isinstance(e, RenameError):
             raise
         raise RenameError(f"Failed to rename {path}") from e
-    
+
     return True  # Continue processing by default
 
 def rename_file(file_path: str, output_dir: str, config: dict, taxonomy_rules: list[TaxonomyRule], dry_run: bool = False) -> str:

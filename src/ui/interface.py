@@ -96,13 +96,13 @@ class UserInterface:
         """
         # First replace home directory with ~
         formatted = str(path).replace(str(Path.home()), "~")
-        
+
         # If this is a source file, show the full relative path from the source directory
         if '/source/' in formatted:
             parts = formatted.split('/source/')
             if len(parts) == 2:
                 return f"~/pdf/source/{parts[1]}"
-        
+
         return formatted
 
     def display_proposal(self, proposal: FileRenameProposal, taxonomy_path: Path | None = None) -> None:
@@ -125,7 +125,7 @@ class UserInterface:
         # Display taxonomy info if available
         if taxonomy_path:
             self.console.print(f"Taxonomy:\n- Using: {self._format_path_with_home(taxonomy_path)}\n")
-        
+
         # Display override if active
         if proposal.override_instructions:
             self.console.print("[yellow]Override Active:[/yellow]")
@@ -254,20 +254,20 @@ class UserInterface:
             # Create Trash directory if it doesn't exist
             trash_dir = file_path.parent / 'Trash'
             trash_dir.mkdir(exist_ok=True)
-            
+
             # Generate target path in trash
             target_path = trash_dir / file_path.name
-            
+
             # If file already exists in trash, append timestamp
             if target_path.exists():
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 target_path = trash_dir / f"{file_path.stem}_{timestamp}{file_path.suffix}"
-            
+
             # Move file to trash
             shutil.move(str(file_path), str(target_path))
             logger.info(f"Moved {file_path} to trash at {target_path}")
             return True
-            
+
         except (OSError, PermissionError, shutil.Error) as e:
             logger.error(f"File system error moving to trash: {e}")
             self.console.print(f"[red]Cannot move file to trash: {e}")
@@ -277,7 +277,7 @@ class UserInterface:
             self.console.print(f"[red]Unexpected error moving to trash: {e}")
             return False
 
-    def handle_rename(self, proposal: FileRenameProposal, taxonomy: TaxonomyParser,
+    def handle_rename(self, proposal: FileRenameProposal, taxonomy: TaxonomyParser | None,
                      rename_func: Callable[[Path, Path], None]) -> bool:
         """Handle rename operation interaction.
 
@@ -317,7 +317,10 @@ class UserInterface:
             elif cmd == 'v':
                 self.view_file(proposal.current_path)
             elif cmd == '?':
-                self.ask_question(taxonomy)
+                if taxonomy:
+                    self.ask_question(taxonomy)
+                else:
+                    self.console.print("[yellow]No taxonomy loaded - cannot ask questions[/yellow]")
             elif cmd == '!':
                 # Handle override instructions
                 override = self.handle_override()

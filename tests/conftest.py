@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-import google.generativeai as genai
 
 from src.config import Config, GeminiConfig
 from src.core.llm import LLMClient

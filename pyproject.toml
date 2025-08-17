@@ -127,3 +127,8 @@ omit = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"] 
+
+[dependency-groups]
+dev = [
+    "types-pyyaml>=6.0.12.20250809",
+]

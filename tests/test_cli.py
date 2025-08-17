@@ -1,10 +1,7 @@
 """Tests for CLI functionality."""
 
-import tempfile
-from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
-import pytest
 from click.testing import CliRunner
 
 from src.cli import cli, setup_logging
@@ -21,7 +18,7 @@ class TestCLI:
     def test_cli_help(self):
         """Test CLI help command."""
         result = self.runner.invoke(cli, ['--help'])
-        
+
         assert result.exit_code == 0
         assert "AI-powered file renaming tool" in result.output
         assert "--config" in result.output
@@ -32,7 +29,7 @@ class TestCLI:
         """Test CLI with no file paths provided."""
         with patch('src.cli.load_config'), patch('src.cli.LLMClient'):
             result = self.runner.invoke(cli, [])
-            
+
             assert result.exit_code == 1
             assert "No paths provided" in result.output
 
@@ -40,7 +37,7 @@ class TestCLI:
         """Test CLI create config option."""
         with patch('src.cli.create_default_config') as mock_create:
             result = self.runner.invoke(cli, ['--create-config'])
-            
+
             assert result.exit_code == 0
             mock_create.assert_called_once()
 
@@ -51,11 +48,11 @@ class TestCLI:
             "api_check": {"status": "ok", "message": "API connection successful"},
             "config_check": {"status": "ok", "message": "Configuration valid"}
         }
-        
+
         with patch('src.cli.create_default_config') as mock_config:
             with patch('src.cli.run_diagnostics', return_value=mock_results):
                 result = self.runner.invoke(cli, ['--diag'])
-                
+
                 assert result.exit_code == 0
                 assert "All diagnostics passed" in result.output
 
@@ -66,11 +63,11 @@ class TestCLI:
             "api_check": {"status": "error", "message": "API connection failed"},
             "config_check": {"status": "ok", "message": "Configuration valid"}
         }
-        
+
         with patch('src.cli.create_default_config'):
             with patch('src.cli.run_diagnostics', return_value=mock_results):
                 result = self.runner.invoke(cli, ['--diag'])
-                
+
                 assert result.exit_code == 1
                 assert "Some diagnostics failed" in result.output
 
@@ -79,7 +76,7 @@ class TestCLI:
         with patch('src.cli.create_default_config'):
             with patch('src.cli.run_diagnostics', side_effect=DiagnosticsError("Diagnostics failed")):
                 result = self.runner.invoke(cli, ['--diag'])
-                
+
                 assert result.exit_code == 1
                 assert "Diagnostics failed" in result.output
 
@@ -91,10 +88,10 @@ gemini:
   api_key: test-key
   model: gemini-2.0-flash
 """)
-        
+
         test_file = temp_dir / "test.txt"
         test_file.write_text("test content")
-        
+
         with patch('src.cli.load_config') as mock_load:
             with patch('src.cli.LLMClient'):
                 with patch('src.cli.rename_files'):
@@ -102,14 +99,14 @@ gemini:
                         '--config', str(config_file),
                         str(test_file)
                     ])
-                    
+
                     mock_load.assert_called_once_with(config_file)
 
     def test_cli_with_gemini_options(self, temp_dir):
         """Test CLI with Gemini API options."""
         test_file = temp_dir / "test.txt"
         test_file.write_text("test content")
-        
+
         with patch('src.cli.create_default_config'):
             with patch('src.cli.LLMClient') as mock_llm:
                 with patch('src.cli.rename_files'):
@@ -118,7 +115,7 @@ gemini:
                         '--gemini-model', 'gemini-1.5-pro',
                         str(test_file)
                     ])
-                    
+
                     # Should create LLM client with custom options
                     mock_llm.assert_called_once()
                     call_kwargs = mock_llm.call_args[1]
@@ -129,7 +126,7 @@ gemini:
         """Test CLI with recursive flag."""
         subdir = temp_dir / "subdir"
         subdir.mkdir()
-        
+
         with patch('src.cli.create_default_config'):
             with patch('src.cli.LLMClient'):
                 with patch('src.cli.rename_files') as mock_rename:
@@ -137,7 +134,7 @@ gemini:
                         '--recursive',
                         str(temp_dir)
                     ])
-                    
+
                     # Should call rename_files with recursive=True
                     mock_rename.assert_called_once()
                     call_kwargs = mock_rename.call_args[1]
@@ -147,7 +144,7 @@ gemini:
         """Test CLI with dry run flag."""
         test_file = temp_dir / "test.txt"
         test_file.write_text("test content")
-        
+
         with patch('src.cli.create_default_config'):
             with patch('src.cli.LLMClient'):
                 with patch('src.cli.rename_files') as mock_rename:
@@ -155,7 +152,7 @@ gemini:
                         '--dry-run',
                         str(test_file)
                     ])
-                    
+
                     # Should call rename_files with dry_run=True
                     mock_rename.assert_called_once()
                     call_kwargs = mock_rename.call_args[1]
@@ -165,10 +162,10 @@ gemini:
         """Test CLI with taxonomy file option."""
         taxonomy_file = temp_dir / "taxonomy.md"
         taxonomy_file.write_text("# Test taxonomy")
-        
+
         test_file = temp_dir / "test.txt"
         test_file.write_text("test content")
-        
+
         with patch('src.cli.create_default_config'):
             with patch('src.cli.LLMClient'):
                 with patch('src.cli.rename_files') as mock_rename:
@@ -176,7 +173,7 @@ gemini:
                         '--taxonomy', str(taxonomy_file),
                         str(test_file)
                     ])
-                    
+
                     # Should call rename_files with taxonomy file
                     mock_rename.assert_called_once()
                     call_kwargs = mock_rename.call_args[1]
@@ -187,7 +184,7 @@ gemini:
         output_dir = temp_dir / "output"
         test_file = temp_dir / "test.txt"
         test_file.write_text("test content")
-        
+
         with patch('src.cli.create_default_config'):
             with patch('src.cli.LLMClient'):
                 with patch('src.cli.rename_files') as mock_rename:
@@ -195,7 +192,7 @@ gemini:
                         '--output', str(output_dir),
                         str(test_file)
                     ])
-                    
+
                     # Should call rename_files with output directory
                     mock_rename.assert_called_once()
                     call_kwargs = mock_rename.call_args[1]
@@ -205,7 +202,7 @@ gemini:
         """Test CLI with promptjson flag."""
         test_file = temp_dir / "test.txt"
         test_file.write_text("test content")
-        
+
         with patch('src.cli.create_default_config'):
             with patch('src.cli.LLMClient'):
                 with patch('src.cli.rename_files') as mock_rename:
@@ -213,7 +210,7 @@ gemini:
                         '--promptjson',
                         str(test_file)
                     ])
-                    
+
                     # Should call rename_files with promptjson=True
                     mock_rename.assert_called_once()
                     call_kwargs = mock_rename.call_args[1]
@@ -223,7 +220,7 @@ gemini:
         """Test CLI with autoaccept flag."""
         test_file = temp_dir / "test.txt"
         test_file.write_text("test content")
-        
+
         with patch('src.cli.create_default_config'):
             with patch('src.cli.LLMClient'):
                 with patch('src.cli.rename_files') as mock_rename:
@@ -231,7 +228,7 @@ gemini:
                         '--autoaccept',
                         str(test_file)
                     ])
-                    
+
                     # Should call rename_files with autoaccept=True
                     mock_rename.assert_called_once()
                     call_kwargs = mock_rename.call_args[1]
@@ -241,7 +238,7 @@ gemini:
         """Test CLI with debug flag."""
         test_file = temp_dir / "test.txt"
         test_file.write_text("test content")
-        
+
         with patch('src.cli.setup_logging') as mock_setup_logging:
             with patch('src.cli.create_default_config'):
                 with patch('src.cli.LLMClient'):
@@ -250,7 +247,7 @@ gemini:
                             '--debug',
                             str(test_file)
                         ])
-                        
+
                         # Should setup logging with debug=True
                         mock_setup_logging.assert_called_once_with(True)
 
@@ -258,12 +255,12 @@ gemini:
         """Test CLI exception handling."""
         test_file = temp_dir / "test.txt"
         test_file.write_text("test content")
-        
+
         with patch('src.cli.create_default_config'):
             with patch('src.cli.LLMClient'):
                 with patch('src.cli.rename_files', side_effect=Exception("Test error")):
                     result = self.runner.invoke(cli, [str(test_file)])
-                    
+
                     assert result.exit_code == 1
                     assert "An error occurred" in result.output
 
@@ -271,7 +268,7 @@ gemini:
         """Test CLI exception handling with debug enabled."""
         test_file = temp_dir / "test.txt"
         test_file.write_text("test content")
-        
+
         with patch('src.cli.create_default_config'):
             with patch('src.cli.LLMClient'):
                 with patch('src.cli.rename_files', side_effect=Exception("Test error")):
@@ -279,7 +276,7 @@ gemini:
                         '--debug',
                         str(test_file)
                     ])
-                    
+
                     assert result.exit_code == 1
                     # Debug mode should show more detailed error information
                     # (exact output depends on logging implementation)
@@ -292,11 +289,11 @@ class TestSetupLogging:
         """Test logging setup in debug mode."""
         with patch('src.cli.logger') as mock_logger:
             setup_logging(debug=True)
-            
+
             # Should remove default handler and add debug level
             mock_logger.remove.assert_called_once()
             mock_logger.add.assert_called_once()
-            
+
             # Check that debug level was set
             call_args = mock_logger.add.call_args
             assert call_args[1]['level'] == "DEBUG"
@@ -305,11 +302,11 @@ class TestSetupLogging:
         """Test logging setup in normal mode."""
         with patch('src.cli.logger') as mock_logger:
             setup_logging(debug=False)
-            
+
             # Should remove default handler and add info level
             mock_logger.remove.assert_called_once()
             mock_logger.add.assert_called_once()
-            
+
             # Check that info level was set
             call_args = mock_logger.add.call_args
             assert call_args[1]['level'] == "INFO"
@@ -324,7 +321,7 @@ class TestCLIFileHandling:
         file2 = temp_dir / "file2.txt"
         file1.write_text("content 1")
         file2.write_text("content 2")
-        
+
         with patch('src.cli.create_default_config'):
             with patch('src.cli.LLMClient'):
                 with patch('src.cli.rename_files') as mock_rename:
@@ -332,7 +329,7 @@ class TestCLIFileHandling:
                         str(file1),
                         str(file2)
                     ])
-                    
+
                     # Should call rename_files with both files
                     mock_rename.assert_called_once()
                     call_args = mock_rename.call_args[1]
@@ -344,9 +341,9 @@ class TestCLIFileHandling:
     def test_cli_with_nonexistent_file(self, temp_dir):
         """Test CLI with non-existent file path."""
         nonexistent = temp_dir / "nonexistent.txt"
-        
+
         result = self.runner.invoke(cli, [str(nonexistent)])
-        
+
         # Click should handle the file existence check
         assert result.exit_code != 0
 
@@ -356,16 +353,16 @@ class TestCLIFileHandling:
         for i in range(3):
             test_file = temp_dir / f"test_{i}.txt"
             test_file.write_text(f"content {i}")
-        
+
         # CLI doesn't expand globs itself - that's shell responsibility
         # But we can test with explicit file paths
         test_files = list(temp_dir.glob("test_*.txt"))
-        
+
         with patch('src.cli.create_default_config'):
             with patch('src.cli.LLMClient'):
                 with patch('src.cli.rename_files') as mock_rename:
                     result = self.runner.invoke(cli, [str(f) for f in test_files])
-                    
+
                     mock_rename.assert_called_once()
                     call_args = mock_rename.call_args[1]
                     assert len(call_args['paths']) == 3

@@ -4,17 +4,17 @@ import pytest
 
 from src.core.exceptions import (
     AiRenameError,
+    AuthenticationError,
+    ConfigError,
+    DiagnosticsError,
+    ExtractionError,
+    FileOperationError,
     LLMError,
     RateLimitError,
-    AuthenticationError,
-    SecurityError,
-    FileOperationError,
-    ExtractionError,
-    TaxonomyError,
-    ConfigError,
-    ValidationError,
-    DiagnosticsError,
     RenameError,
+    SecurityError,
+    TaxonomyError,
+    ValidationError,
 )
 
 
@@ -58,7 +58,7 @@ class TestExceptionHierarchy:
             ValidationError,
             RenameError,
         ]
-        
+
         for error_class in error_classes:
             error = error_class("test message")
             assert isinstance(error, AiRenameError)
@@ -176,7 +176,7 @@ class TestExceptionCatching:
     def test_exception_with_cause(self):
         """Test exceptions with cause chaining."""
         original_error = ValueError("original error")
-        
+
         try:
             raise LLMError("wrapper error") from original_error
         except LLMError as e:

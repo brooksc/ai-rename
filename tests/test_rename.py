@@ -1,21 +1,18 @@
 """Tests for core rename functionality."""
 
-import json
-import tempfile
 from datetime import datetime
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 import pytest
 
 from src.core.exceptions import RenameError
 from src.core.llm import LLMClient, RenameSuggestion
 from src.rename import (
+    _process_file,
     extract_date_from_content,
     get_document_date,
     is_supported_file,
     rename_files,
-    _process_file,
 )
 
 
@@ -26,7 +23,7 @@ class TestDateExtraction:
         """Test extracting ISO format date (YYYY-MM-DD)."""
         content = "Document date: 2024-01-15"
         date = extract_date_from_content(content)
-        
+
         assert date is not None
         assert date.year == 2024
         assert date.month == 1
@@ -36,7 +33,7 @@ class TestDateExtraction:
         """Test extracting US format date (MM/DD/YYYY)."""
         content = "Invoice date: 01/15/2024"
         date = extract_date_from_content(content)
-        
+
         assert date is not None
         assert date.year == 2024
         assert date.month == 1
@@ -46,7 +43,7 @@ class TestDateExtraction:
         """Test extracting date with month name."""
         content = "Service date: January 15, 2024"
         date = extract_date_from_content(content)
-        
+
         assert date is not None
         assert date.year == 2024
         assert date.month == 1
@@ -56,14 +53,14 @@ class TestDateExtraction:
         """Test extracting date when no date is present."""
         content = "This document has no dates in it whatsoever."
         date = extract_date_from_content(content)
-        
+
         assert date is None
 
     def test_extract_date_multiple_dates(self):
         """Test extracting date when multiple dates are present."""
         content = "Created: 2024-01-01, Service: 2024-01-15, Due: 2024-01-30"
         date = extract_date_from_content(content)
-        
+
         # Should return the first valid date found
         assert date is not None
         assert date.year == 2024
@@ -74,14 +71,14 @@ class TestDateExtraction:
         """Test extracting date with invalid date patterns."""
         content = "Document date: 2024-13-40"  # Invalid month and day
         date = extract_date_from_content(content)
-        
+
         assert date is None
 
     def test_extract_date_partial_match(self):
         """Test extracting date with partial pattern matches."""
         content = "File 2024-01 incomplete date"
         date = extract_date_from_content(content)
-        
+
         assert date is None  # Incomplete date should not match
 
 
@@ -91,9 +88,9 @@ class TestDocumentDate:
     def test_get_document_date_from_content(self, sample_txt_file):
         """Test getting document date from content."""
         content = "Invoice date: 2024-01-15\nAmount: $100"
-        
+
         date, source = get_document_date(sample_txt_file, content)
-        
+
         assert date.year == 2024
         assert date.month == 1
         assert date.day == 15
@@ -102,9 +99,9 @@ class TestDocumentDate:
     def test_get_document_date_from_file_stat(self, sample_txt_file):
         """Test getting document date from file modification time."""
         content = "No dates in this content"
-        
+
         date, source = get_document_date(sample_txt_file, content)
-        
+
         assert isinstance(date, datetime)
         assert source == "file"
 
@@ -113,14 +110,14 @@ class TestDocumentDate:
         # Create a file path that doesn't exist
         nonexistent_file = temp_dir / "nonexistent.txt"
         content = "No dates in this content"
-        
+
         with patch('src.rename.datetime') as mock_datetime:
             mock_now = datetime(2024, 1, 1)
             mock_datetime.now.return_value = mock_now
             mock_datetime.fromtimestamp.side_effect = Exception("Stat failed")
-            
+
             date, source = get_document_date(nonexistent_file, content)
-            
+
             assert date == mock_now
             assert source == "current"
 
@@ -132,14 +129,14 @@ class TestFileSupportCheck:
         """Test PDF file support check."""
         pdf_file = temp_dir / "test.pdf"
         pdf_file.touch()
-        
+
         assert is_supported_file(pdf_file) is True
 
     def test_is_supported_file_txt(self, temp_dir):
         """Test TXT file support check."""
         txt_file = temp_dir / "test.txt"
         txt_file.touch()
-        
+
         # Based on constants.py, only PDF is currently supported
         assert is_supported_file(txt_file) is False
 
@@ -147,14 +144,14 @@ class TestFileSupportCheck:
         """Test unsupported file type."""
         image_file = temp_dir / "test.jpg"
         image_file.touch()
-        
+
         assert is_supported_file(image_file) is False
 
     def test_is_supported_file_case_insensitive(self, temp_dir):
         """Test file support check is case insensitive."""
         pdf_file = temp_dir / "test.PDF"
         pdf_file.touch()
-        
+
         assert is_supported_file(pdf_file) is True
 
 
@@ -175,17 +172,17 @@ class TestProcessFile:
             reasoning="This is an invoice from ACME Corp"
         )
         self.mock_llm_client.generate_rename_suggestion.return_value = suggestion
-        
+
         # Mock UI interaction
         self.mock_ui.handle_rename.return_value = True
-        
+
         result = _process_file(
             path=sample_txt_file,
             llm_client=self.mock_llm_client,
             dry_run=False,
             ui=self.mock_ui
         )
-        
+
         assert result is True
         self.mock_llm_client.generate_rename_suggestion.assert_called_once()
         self.mock_ui.handle_rename.assert_called_once()
@@ -205,14 +202,14 @@ class TestProcessFile:
         large_pdf = temp_dir / "large.pdf"
         large_content = b"Large PDF content" * 100000  # Over 1MB
         large_pdf.write_bytes(large_content)
-        
+
         result = _process_file(
             path=large_pdf,
             llm_client=self.mock_llm_client,
             dry_run=False,
             ui=self.mock_ui
         )
-        
+
         # Should skip large files
         assert result is True
         self.mock_llm_client.generate_rename_suggestion.assert_not_called()
@@ -225,14 +222,14 @@ class TestProcessFile:
             reasoning="test reasoning"
         )
         self.mock_llm_client.generate_rename_suggestion.return_value = suggestion
-        
+
         with patch('src.rename.logger') as mock_logger:
             _process_file(
                 path=sample_txt_file,
                 llm_client=self.mock_llm_client,
                 dry_run=True
             )
-            
+
             # Should log what would be done
             mock_logger.info.assert_called()
             # Should not call UI for rename
@@ -248,7 +245,7 @@ class TestProcessFile:
         )
         self.mock_llm_client.generate_rename_suggestion.return_value = suggestion
         self.mock_ui.handle_rename.return_value = True
-        
+
         result = _process_file(
             path=sample_txt_file,
             llm_client=self.mock_llm_client,
@@ -256,7 +253,7 @@ class TestProcessFile:
             output_dir=output_dir,
             ui=self.mock_ui
         )
-        
+
         assert result is True
         # Check that proposal was created with output directory path
         call_args = self.mock_ui.handle_rename.call_args[0][0]
@@ -270,20 +267,20 @@ class TestProcessFile:
             reasoning="test reasoning"
         )
         self.mock_llm_client.generate_rename_suggestion.return_value = suggestion
-        
+
         # Mock the debug files creation
         prompt_file = sample_txt_file.parent / "request.prompt"
         response_file = sample_txt_file.parent / "response.json"
         prompt_file.write_text("test prompt")
         response_file.write_text('{"test": "response"}')
-        
+
         _process_file(
             path=sample_txt_file,
             llm_client=self.mock_llm_client,
             dry_run=False,
             promptjson=True
         )
-        
+
         # Should have called LLM with capture directory
         self.mock_llm_client.generate_rename_suggestion.assert_called_once()
         call_kwargs = self.mock_llm_client.generate_rename_suggestion.call_args[1]
@@ -294,7 +291,7 @@ class TestProcessFile:
         # Create a file that can't be read
         unreadable_file = temp_dir / "unreadable.txt"
         unreadable_file.touch()
-        
+
         with patch('builtins.open', side_effect=PermissionError("Permission denied")):
             with pytest.raises(RenameError, match="Failed to read content"):
                 _process_file(
@@ -306,7 +303,7 @@ class TestProcessFile:
     def test_process_file_llm_error(self, sample_txt_file):
         """Test file processing with LLM error."""
         self.mock_llm_client.generate_rename_suggestion.side_effect = Exception("LLM failed")
-        
+
         with pytest.raises(RenameError, match="Failed to get rename suggestion"):
             _process_file(
                 path=sample_txt_file,
@@ -330,10 +327,10 @@ class TestRenameFiles:
             reasoning="test reasoning"
         )
         self.mock_llm_client.generate_rename_suggestion.return_value = suggestion
-        
+
         with patch('src.rename._process_file') as mock_process:
             mock_process.return_value = True
-            
+
             rename_files(
                 paths=[sample_txt_file],
                 recursive=False,
@@ -341,7 +338,7 @@ class TestRenameFiles:
                 config_path=sample_config,
                 llm_client=self.mock_llm_client
             )
-            
+
             mock_process.assert_called_once()
 
     def test_rename_files_recursive_directory(self, temp_dir, sample_config):
@@ -353,10 +350,10 @@ class TestRenameFiles:
         pdf2 = subdir / "test2.pdf"
         pdf1.write_bytes(b"PDF content")
         pdf2.write_bytes(b"PDF content")
-        
+
         with patch('src.rename._process_file') as mock_process:
             mock_process.return_value = True
-            
+
             rename_files(
                 paths=[temp_dir],
                 recursive=True,
@@ -364,7 +361,7 @@ class TestRenameFiles:
                 config_path=sample_config,
                 llm_client=self.mock_llm_client
             )
-            
+
             # Should process both PDF files
             assert mock_process.call_count == 2
 
@@ -372,7 +369,7 @@ class TestRenameFiles:
         """Test renaming with unsupported file type."""
         unsupported_file = temp_dir / "image.jpg"
         unsupported_file.write_bytes(b"image content")
-        
+
         with patch('src.rename.logger') as mock_logger:
             rename_files(
                 paths=[unsupported_file],
@@ -381,7 +378,7 @@ class TestRenameFiles:
                 config_path=sample_config,
                 llm_client=self.mock_llm_client
             )
-            
+
             # Should log warning about unsupported file
             mock_logger.warning.assert_called()
 
@@ -389,7 +386,7 @@ class TestRenameFiles:
         """Test renaming files with taxonomy rules."""
         with patch('src.rename._process_file') as mock_process:
             mock_process.return_value = True
-            
+
             rename_files(
                 paths=[sample_txt_file],
                 recursive=False,
@@ -398,7 +395,7 @@ class TestRenameFiles:
                 llm_client=self.mock_llm_client,
                 taxonomy_file=sample_taxonomy_file
             )
-            
+
             # Should pass taxonomy to process function
             call_args = mock_process.call_args[1]
             assert call_args['taxonomy'] is not None
@@ -413,7 +410,7 @@ class TestRenameFiles:
                 config_path=sample_config,
                 llm_client=self.mock_llm_client
             )
-            
+
             # Should log warning about needing --recursive
             mock_logger.warning.assert_called()
 
@@ -421,7 +418,7 @@ class TestRenameFiles:
         """Test handling errors during file processing."""
         with patch('src.rename._process_file') as mock_process:
             mock_process.side_effect = Exception("Processing failed")
-            
+
             with patch('src.rename.logger') as mock_logger:
                 rename_files(
                     paths=[sample_txt_file],
@@ -430,7 +427,7 @@ class TestRenameFiles:
                     config_path=sample_config,
                     llm_client=self.mock_llm_client
                 )
-                
+
                 # Should log error
                 mock_logger.error.assert_called()
 
@@ -438,7 +435,7 @@ class TestRenameFiles:
         """Test handling user quitting during processing."""
         with patch('src.rename._process_file') as mock_process:
             mock_process.return_value = False  # User quit
-            
+
             rename_files(
                 paths=[sample_txt_file],
                 recursive=False,
@@ -446,6 +443,6 @@ class TestRenameFiles:
                 config_path=sample_config,
                 llm_client=self.mock_llm_client
             )
-            
+
             # Should exit early when user quits
             mock_process.assert_called_once()

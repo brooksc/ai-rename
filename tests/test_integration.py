@@ -1,16 +1,13 @@
 """Integration tests for ai-rename components."""
 
 import json
-import tempfile
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 import pytest
 
-from src.config import Config, GeminiConfig
 from src.core.llm import LLMClient, RenameSuggestion
 from src.core.taxonomy import TaxonomyParser
-from src.rename import rename_files, _process_file
+from src.rename import rename_files
 from src.ui.interface import UserInterface
 
 
@@ -38,17 +35,17 @@ class TestLLMTaxonomyIntegration:
             "reasoning": "Invoice from ACME Corp, categorized under Financial per taxonomy rules"
         })
         self.mock_client.models.generate_content.return_value = mock_response
-        
+
         # Create LLM client
         llm_client = LLMClient(api_key="test-key")
-        
+
         # Test suggestion generation with taxonomy
         suggestion = llm_client.generate_rename_suggestion(
             content="Invoice from ACME Corp\nDate: 2024-01-15\nAmount: $1,250.00",
             file_path=sample_txt_file,
             taxonomy_rules=sample_taxonomy_parser.content
         )
-        
+
         assert isinstance(suggestion, RenameSuggestion)
         assert "Financial" in suggestion.suggested_path
         assert "2024-01-15" in suggestion.filename
@@ -63,15 +60,15 @@ class TestLLMTaxonomyIntegration:
             "reasoning": "test"
         })
         self.mock_client.models.generate_content.return_value = mock_response
-        
+
         llm_client = LLMClient(api_key="test-key")
-        
+
         llm_client.generate_rename_suggestion(
             content="Test content",
             file_path=sample_txt_file,
             taxonomy_rules=sample_taxonomy_parser.content
         )
-        
+
         # Verify that taxonomy content was included in the prompt
         call_args = self.mock_client.models.generate_content.call_args
         prompt = call_args[1]['contents']
@@ -88,16 +85,16 @@ class TestLLMTaxonomyIntegration:
             "reasoning": "Applied custom override instructions"
         })
         self.mock_client.models.generate_content.return_value = mock_response
-        
+
         llm_client = LLMClient(api_key="test-key")
-        
+
         suggestion = llm_client.generate_rename_suggestion(
             content="Test content",
             file_path=sample_txt_file,
             taxonomy_rules="Test taxonomy",
             override_instructions="Place in Custom/Override directory"
         )
-        
+
         assert "Custom/Override" in suggestion.suggested_path
         assert "override" in suggestion.reasoning.lower()
 
@@ -110,14 +107,14 @@ class TestLLMTaxonomyIntegration:
             "reasoning": "Processed PDF document content"
         })
         self.mock_client.models.generate_content.return_value = mock_response
-        
+
         llm_client = LLMClient(api_key="test-key")
-        
+
         suggestion = llm_client.generate_rename_suggestion(
             content="<PDF file will be processed directly by Gemini>",
             file_path=sample_pdf_file
         )
-        
+
         assert suggestion.filename.endswith(".pdf")
         assert "2024-01-15" in suggestion.filename
 
@@ -146,16 +143,16 @@ class TestEndToEndWorkflow:
             "reasoning": "Invoice from ACME Corp per taxonomy rules"
         })
         self.mock_client.models.generate_content.return_value = mock_response
-        
+
         # Create LLM client
         llm_client = LLMClient(api_key="test-key")
-        
+
         # Mock UI to auto-accept
         with patch('src.rename.UserInterface') as mock_ui_class:
             mock_ui = Mock()
             mock_ui.handle_rename.return_value = True
             mock_ui_class.return_value = mock_ui
-            
+
             # Test complete workflow
             rename_files(
                 paths=[sample_txt_file],
@@ -165,7 +162,7 @@ class TestEndToEndWorkflow:
                 llm_client=llm_client,
                 taxonomy_file=sample_taxonomy_file
             )
-            
+
             # Verify workflow executed
             mock_ui.handle_rename.assert_called_once()
             proposal = mock_ui.handle_rename.call_args[0][0]
@@ -180,7 +177,7 @@ class TestEndToEndWorkflow:
             file_path = temp_dir / f"test_{i}.txt"
             file_path.write_text(f"Test content {i}")
             files.append(file_path)
-        
+
         # Mock LLM responses
         mock_response = Mock()
         mock_response.text = json.dumps({
@@ -189,15 +186,15 @@ class TestEndToEndWorkflow:
             "reasoning": "Batch processed file"
         })
         self.mock_client.models.generate_content.return_value = mock_response
-        
+
         llm_client = LLMClient(api_key="test-key")
-        
+
         with patch('src.rename.UserInterface') as mock_ui_class:
             mock_ui = Mock()
             mock_ui.handle_rename.return_value = True
             mock_ui.total_files = 3
             mock_ui_class.return_value = mock_ui
-            
+
             rename_files(
                 paths=files,
                 recursive=False,
@@ -205,7 +202,7 @@ class TestEndToEndWorkflow:
                 config_path=sample_config,
                 llm_client=llm_client
             )
-            
+
             # Should process all files
             assert mock_ui.handle_rename.call_count == 3
 
@@ -213,9 +210,9 @@ class TestEndToEndWorkflow:
         """Test error handling in complete workflow."""
         # Mock LLM failure
         self.mock_client.models.generate_content.side_effect = Exception("API Error")
-        
+
         llm_client = LLMClient(api_key="test-key")
-        
+
         with patch('src.rename.logger') as mock_logger:
             rename_files(
                 paths=[sample_txt_file],
@@ -224,7 +221,7 @@ class TestEndToEndWorkflow:
                 config_path=sample_config,
                 llm_client=llm_client
             )
-            
+
             # Should log error
             mock_logger.error.assert_called()
 
@@ -237,9 +234,9 @@ class TestEndToEndWorkflow:
             "reasoning": "Dry run test"
         })
         self.mock_client.models.generate_content.return_value = mock_response
-        
+
         llm_client = LLMClient(api_key="test-key")
-        
+
         with patch('src.rename.logger') as mock_logger:
             rename_files(
                 paths=[sample_txt_file],
@@ -248,7 +245,7 @@ class TestEndToEndWorkflow:
                 config_path=sample_config,
                 llm_client=llm_client
             )
-            
+
             # Should log what would be done
             mock_logger.info.assert_called()
 
@@ -258,8 +255,8 @@ class TestUIIntegration:
 
     def test_ui_file_rename_proposal(self, sample_txt_file, temp_dir):
         """Test UI integration with file rename proposals."""
-        from src.ui.interface import FileRenameProposal, UserInterface
-        
+        from src.ui.interface import FileRenameProposal
+
         # Create a rename proposal
         proposal = FileRenameProposal(
             current_path=sample_txt_file,
@@ -267,64 +264,64 @@ class TestUIIntegration:
             content_preview="Test content preview",
             reasoning="Test reasoning for rename"
         )
-        
+
         # Mock UI interactions
         ui = UserInterface(autoaccept=False)
-        
+
         with patch.object(ui, '_get_user_input', return_value='y'):
             with patch('shutil.move') as mock_move:
                 def mock_rename_func(src, dst):
                     dst.parent.mkdir(parents=True, exist_ok=True)
                     mock_move(src, dst)
-                
+
                 result = ui.handle_rename(proposal, None, mock_rename_func)
-                
+
                 assert result is True
                 mock_move.assert_called_once()
 
     def test_ui_autoaccept_mode(self, sample_txt_file, temp_dir):
         """Test UI in autoaccept mode."""
-        from src.ui.interface import FileRenameProposal, UserInterface
-        
+        from src.ui.interface import FileRenameProposal
+
         proposal = FileRenameProposal(
             current_path=sample_txt_file,
             new_path=temp_dir / "autoaccept.txt",
             content_preview="Auto accept test",
             reasoning="Auto accept reasoning"
         )
-        
+
         ui = UserInterface(autoaccept=True)
-        
+
         with patch('shutil.move') as mock_move:
             def mock_rename_func(src, dst):
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 mock_move(src, dst)
-            
+
             result = ui.handle_rename(proposal, None, mock_rename_func)
-            
+
             assert result is True
             mock_move.assert_called_once()
 
     def test_ui_user_rejection(self, sample_txt_file, temp_dir):
         """Test UI handling user rejection."""
-        from src.ui.interface import FileRenameProposal, UserInterface
-        
+        from src.ui.interface import FileRenameProposal
+
         proposal = FileRenameProposal(
             current_path=sample_txt_file,
             new_path=temp_dir / "rejected.txt",
             content_preview="Rejection test",
             reasoning="Test rejection"
         )
-        
+
         ui = UserInterface(autoaccept=False)
-        
+
         with patch.object(ui, '_get_user_input', return_value='n'):
             with patch('shutil.move') as mock_move:
                 def mock_rename_func(src, dst):
                     mock_move(src, dst)
-                
+
                 result = ui.handle_rename(proposal, None, mock_rename_func)
-                
+
                 assert result is True  # Continue processing
                 mock_move.assert_not_called()
 
@@ -344,10 +341,10 @@ gemini:
   timeout: 60
 """
         config_file.write_text(config_data)
-        
+
         from src.config import load_config
         config = load_config(config_file)
-        
+
         with patch('src.core.llm.genai.Client'):
             llm_client = LLMClient(
                 model=config.gemini.model,
@@ -355,7 +352,7 @@ gemini:
                 timeout=config.gemini.timeout,
                 api_key=config.gemini.api_key
             )
-            
+
             assert llm_client.model == "gemini-2.0-flash"
             assert llm_client.temperature == 0.8
             assert llm_client.timeout == 60
@@ -378,11 +375,10 @@ gemini:
 """
         taxonomy_file = temp_dir / "custom_taxonomy.md"
         taxonomy_file.write_text(taxonomy_content)
-        
+
         # Test taxonomy parsing
-        from src.core.taxonomy import TaxonomyParser
         parser = TaxonomyParser(taxonomy_file)
-        
+
         assert "Business/{Company}/Invoices" in parser.content
         assert "Legal/{Party}/Contracts" in parser.content
         assert "Business invoices and receipts" in parser.content
@@ -398,14 +394,14 @@ class TestErrorRecovery:
         bad_file = temp_dir / "bad.txt"
         good_file.write_text("Good content")
         bad_file.write_text("Bad content")
-        
+
         files = [good_file, bad_file]
-        
+
         def mock_process_file(path, **kwargs):
             if path.name == "bad.txt":
                 raise Exception("Processing failed")
             return True
-        
+
         with patch('src.rename._process_file', side_effect=mock_process_file):
             with patch('src.rename.logger') as mock_logger:
                 rename_files(
@@ -415,7 +411,7 @@ class TestErrorRecovery:
                     config_path=sample_config,
                     llm_client=Mock()
                 )
-                
+
                 # Should log error but continue processing
                 mock_logger.error.assert_called()
 
@@ -424,7 +420,7 @@ class TestErrorRecovery:
         # Create invalid taxonomy file
         bad_taxonomy = temp_dir / "bad_taxonomy.md"
         bad_taxonomy.write_text("")  # Empty file
-        
+
         with pytest.raises(Exception):  # Should raise TaxonomyError
             rename_files(
                 paths=[sample_txt_file],
