@@ -5,8 +5,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
 
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 from loguru import logger
 
 from src.config import Config
@@ -73,15 +72,10 @@ def check_gemini(config: Config) -> dict[str, Any]:
 
             # Test PDF handling with Gemini
             try:
-                client = genai.Client()
-                pdf_part = types.Part.from_bytes(
-                    data=test_pdf.read_bytes(),
-                    mime_type='application/pdf'
-                )
-                response = client.models.generate_content(
-                    model=config.gemini.model,
-                    contents=[pdf_part, "What is this document about?"]
-                )
+                genai.configure(api_key=config.gemini.api_key)
+                model = genai.GenerativeModel(config.gemini.model)
+                pdf_file = genai.upload_file(test_pdf.name, mime_type='application/pdf')
+                response = model.generate_content([pdf_file, "What is this document about?"])
                 if response.text:
                     return {
                         "status": "ok",

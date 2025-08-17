@@ -5,8 +5,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 from loguru import logger
 
 from src.core.exceptions import LLMError, RateLimitError
@@ -68,7 +67,8 @@ class LLMClient:
             api_key = os.getenv("GOOGLE_API_KEY")
             if not api_key:
                 raise ValueError("GOOGLE_API_KEY not found in environment variables")
-        self.client = genai.Client(api_key=api_key)
+        genai.configure(api_key=api_key)
+        self.api_key = api_key
 
     def test_connection(self) -> bool:
         """Test the connection to the Gemini API."""
@@ -143,24 +143,17 @@ Do not include any other fields or text outside this JSON object."""
                 if file_path and file_path.suffix.lower() == '.pdf':
                     logger.debug("Processing PDF file directly with Gemini")
                     try:
-                        # Create PDF part from file bytes
-                        pdf_part = types.Part.from_bytes(
-                            data=file_path.read_bytes(),
-                            mime_type='application/pdf'
-                        )
-                        response = self.client.models.generate_content(
-                            model=self.model,
-                            contents=[pdf_part, prompt_with_json]
-                        )
+                        # Upload PDF file and create content
+                        model = genai.GenerativeModel(self.model)
+                        pdf_file = genai.upload_file(file_path, mime_type='application/pdf')
+                        response = model.generate_content([pdf_file, prompt_with_json])
                     except Exception as e:
                         logger.error(f"Failed to process PDF file: {e}")
                         raise LLMError(f"Failed to process PDF file: {e}") from e
                 else:
                     # Regular text processing
-                    response = self.client.models.generate_content(
-                        model=self.model,
-                        contents=prompt_with_json
-                    )
+                    model = genai.GenerativeModel(self.model)
+                    response = model.generate_content(prompt_with_json)
                 logger.debug("Successfully received response from Gemini")
                 # Gemini sometimes includes newlines in the JSON, remove them
                 content = response.text.strip().replace('\n', '')

@@ -51,3 +51,5 @@ docs/_build/
 
 # macOS
 .DS_Store
+.envrc
+CLAUDE.md
