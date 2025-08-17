@@ -14,7 +14,7 @@ from src.constants import SUPPORTED_FILE_TYPES
 from src.core.exceptions import RenameError
 from src.core.llm import LLMClient
 from src.core.taxonomy import TaxonomyParser, TaxonomyRule
-from src.ui.interface import UserInterface, FileRenameProposal
+from src.ui.interface import FileRenameProposal, UserInterface
 
 
 def extract_date_from_content(content: str) -> datetime | None:

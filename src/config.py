@@ -104,7 +104,7 @@ class Config:
             }
         }
 
-def load_config(config_path: Path) -> Config:
+def load_config(config_path: Path | None) -> Config:
     """Load configuration from file.
 
     Args:
@@ -117,7 +117,7 @@ def load_config(config_path: Path) -> Config:
         FileNotFoundError: If config file not found
         ValueError: If config is invalid
     """
-    if not config_path.exists():
+    if not config_path or not config_path.exists():
         logger.warning(f"Config file not found at {config_path}, using defaults")
         return Config(gemini=GeminiConfig())
 

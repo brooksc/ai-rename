@@ -43,7 +43,7 @@ class UserInterface:
 
     def __init__(self, autoaccept: bool = False):
         """Initialize interface.
-        
+
         Args:
             autoaccept: Whether to automatically accept all rename suggestions
         """

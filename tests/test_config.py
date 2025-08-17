@@ -22,7 +22,7 @@ class TestGeminiConfig:
 
         assert config.api_key == "test-key"
         assert config.model == "gemini-2.0-flash"
-        assert config.temperature == 0.9
+        assert config.temperature == 0.7
         assert config.timeout == 30
 
     def test_gemini_config_defaults(self):
