@@ -35,8 +35,11 @@ class PromptTemplate:
             return self.template.format(**variables)
         except KeyError as e:
             raise ValueError(f"Invalid variable reference: {e}") from e
+        except (TypeError, AttributeError) as e:
+            raise ValueError(f"Invalid template format: {e}") from e
         except Exception as e:
-            raise ValueError(f"Failed to format template: {e}") from e
+            logger.error(f"Unexpected error formatting template: {e}")
+            raise ValueError(f"Unexpected template formatting error: {e}") from e
 
 @dataclass
 class PromptLibrary:
@@ -106,8 +109,11 @@ class PromptLibrary:
                     description=template_data.get('description')
                 )
                 templates[name] = template
+            except (KeyError, ValueError, TypeError) as e:
+                logger.error(f"Invalid template data for '{name}': {e}")
+                continue
             except Exception as e:
-                logger.error(f"Failed to create template '{name}': {e}")
+                logger.error(f"Unexpected error creating template '{name}': {e}")
                 continue
 
         return cls(templates=templates)
@@ -135,8 +141,13 @@ class PromptLibrary:
             with open(path) as f:
                 data = yaml.safe_load(f)
             return cls.from_dict(data)
+        except (FileNotFoundError, PermissionError) as e:
+            raise ValueError(f"Cannot access template file {path}: {e}") from e
+        except yaml.YAMLError as e:
+            raise ValueError(f"Invalid YAML in template file {path}: {e}") from e
         except Exception as e:
-            raise ValueError(f"Failed to load templates from {path}: {e}") from e
+            logger.error(f"Unexpected error loading templates: {e}")
+            raise ValueError(f"Unexpected error loading templates from {path}: {e}") from e
 
     def save_yaml(self, path: Path) -> None:
         """Save templates to YAML file."""
@@ -144,8 +155,13 @@ class PromptLibrary:
             data = self.to_dict()
             with open(path, 'w') as f:
                 yaml.safe_dump(data, f, sort_keys=False)
+        except (OSError, PermissionError) as e:
+            raise ValueError(f"Cannot write to template file {path}: {e}") from e
+        except yaml.YAMLError as e:
+            raise ValueError(f"YAML serialization error for {path}: {e}") from e
         except Exception as e:
-            raise ValueError(f"Failed to save templates to {path}: {e}") from e
+            logger.error(f"Unexpected error saving templates: {e}")
+            raise ValueError(f"Unexpected error saving templates to {path}: {e}") from e
 
 # Default prompt templates
 DEFAULT_TEMPLATES = {

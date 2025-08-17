@@ -153,8 +153,11 @@ def safe_rename(src: Path, dst: Path, config: FileOperationConfig | None = None)
         os.rename(src, dst)
     except OSError:
         raise
+    except (ValueError, TypeError) as e:
+        raise OSError(f"Invalid path parameters for rename: {e}") from e
     except Exception as e:
-        raise OSError(f"Failed to rename {src} to {dst}: {e}") from e
+        logger.error(f"Unexpected error during rename: {e}")
+        raise OSError(f"Unexpected rename failure {src} to {dst}: {e}") from e
 
 def get_unique_path(path: Path) -> Path:
     """Get a unique path by appending a number if needed.

@@ -5,6 +5,7 @@ import re
 import stat
 from pathlib import Path
 
+from loguru import logger
 from src.core.exceptions import SecurityError
 
 
@@ -230,10 +231,16 @@ class SystemPathValidator:
                 try:
                     test_file.touch()
                     test_file.unlink()
-                except Exception as e:
+                except (OSError, PermissionError) as e:
                     raise SecurityError(f"Directory is not writable: {path} ({e})") from e
+                except Exception as e:
+                    logger.error(f"Unexpected error testing directory permissions: {e}")
+                    raise SecurityError(f"Cannot verify directory permissions: {path} ({e})") from e
 
         except SecurityError:
             raise
+        except (OSError, AttributeError) as e:
+            raise SecurityError(f"Cannot access path for permission check: {path} ({e})") from e
         except Exception as e:
-            raise SecurityError(f"Failed to check permissions for {path}: {e}") from e
+            logger.error(f"Unexpected error checking permissions: {e}")
+            raise SecurityError(f"Unexpected permission check failure for {path}: {e}") from e

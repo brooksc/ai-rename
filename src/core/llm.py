@@ -87,9 +87,12 @@ class LLMClient:
             else:
                 logger.error("Empty response from Gemini")
                 return False
-        except Exception as e:
+        except (ValueError, ConnectionError, TimeoutError) as e:
             logger.error(f"Failed to connect to Gemini: {e}")
             raise LLMError("Failed to connect to Gemini. Please ensure:\n1. Your API key is valid\n2. The model is available\n3. You have access to the model") from e
+        except Exception as e:
+            logger.error(f"Unexpected error during Gemini connection test: {e}")
+            raise LLMError(f"Unexpected connection error: {e}") from e
 
     def _make_request(self, prompt: str, file_path: Path | None = None) -> str:
         """Make request to LLM API.
@@ -147,9 +150,15 @@ Do not include any other fields or text outside this JSON object."""
                         model = genai.GenerativeModel(self.model)
                         pdf_file = genai.upload_file(file_path, mime_type='application/pdf')
                         response = model.generate_content([pdf_file, prompt_with_json])
+                    except (FileNotFoundError, PermissionError) as e:
+                        logger.error(f"PDF file access error: {e}")
+                        raise LLMError(f"Cannot access PDF file: {e}") from e
+                    except (ValueError, TypeError) as e:
+                        logger.error(f"PDF processing parameter error: {e}")
+                        raise LLMError(f"Invalid PDF processing parameters: {e}") from e
                     except Exception as e:
                         logger.error(f"Failed to process PDF file: {e}")
-                        raise LLMError(f"Failed to process PDF file: {e}") from e
+                        raise LLMError(f"PDF processing failed: {e}") from e
                 else:
                     # Regular text processing
                     model = genai.GenerativeModel(self.model)
@@ -164,23 +173,29 @@ Do not include any other fields or text outside this JSON object."""
                 logger.debug(content)
                 logger.debug("=" * 80)
 
-            except Exception as e:
+            except (ConnectionError, TimeoutError) as e:
+                logger.error(f"Network error connecting to Gemini API: {e}")
+                raise LLMError(f"Network connection failed: {e}. Check your internet connection.") from e
+            except ValueError as e:
                 error_msg = str(e).lower()
-                # Handle Gemini-specific errors
                 if "api key" in error_msg:
                     logger.error("Missing or invalid Google API key")
-                    logger.error("Please set the GOOGLE_API_KEY environment variable")
                     raise LLMError("Missing or invalid Google API key. Please set GOOGLE_API_KEY environment variable.") from e
-                elif "model not found" in error_msg:
+                else:
+                    logger.error(f"Invalid parameter for Gemini API: {e}")
+                    raise LLMError(f"Invalid API parameters: {e}") from e
+            except PermissionError as e:
+                logger.error("Authentication failed - please check your API key")
+                raise LLMError("Authentication failed - please check your API key") from e
+            except Exception as e:
+                error_msg = str(e).lower()
+                # Handle remaining Gemini-specific errors
+                if "model not found" in error_msg:
                     logger.error(f"Model '{self.model}' not found or not available")
-                    logger.error("Please check the model name and your API access")
                     raise LLMError(f"Model '{self.model}' not found or not available") from e
-                elif "rate limit" in error_msg:
+                elif "rate limit" in error_msg or "quota" in error_msg:
                     logger.error("Gemini API rate limit exceeded")
                     raise RateLimitError("Gemini API rate limit exceeded") from e
-                elif "unauthorized" in error_msg:
-                    logger.error("Authentication failed - please check your API key")
-                    raise LLMError("Authentication failed - please check your API key") from e
                 else:
                     logger.error(f"Unexpected Gemini API error: {error_msg}")
                     raise LLMError(f"Gemini API request failed: {error_msg}") from e
@@ -219,12 +234,21 @@ Do not include any other fields or text outside this JSON object."""
 
             return json_str
 
+        except (FileNotFoundError, PermissionError) as e:
+            logger.error(f"File access error when saving debug files: {e}")
+            raise LLMError(f"Cannot save debug files: {e}") from e
+        except LLMError:
+            # Re-raise specific LLM errors
+            raise
+        except RateLimitError:
+            # Re-raise rate limit errors
+            raise
         except Exception as e:
-            # Handle rate limit errors
-            if "rate limit" in str(e).lower():
+            # Handle any remaining unexpected errors
+            error_msg = str(e).lower()
+            if "rate limit" in error_msg:
                 raise RateLimitError(f"Rate limit exceeded: {e}") from e
-            if isinstance(e, LLMError):
-                raise
+            logger.error(f"Unexpected error in LLM request: {e}")
             raise LLMError(f"LLM request failed: {e}") from e
 
     def _validate_response(self, response: dict, original_path: Path) -> dict:
@@ -250,8 +274,11 @@ Do not include any other fields or text outside this JSON object."""
                 raise ValueError(f"Filename must keep original extension: {original_path.suffix}")
 
             return response
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             raise LLMError(f"Invalid response format: {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error during response validation: {e}")
+            raise LLMError(f"Response validation failed: {e}") from e
 
     def generate_rename_suggestion(self,
                              content: str,
@@ -296,19 +323,26 @@ Do not include any other fields or text outside this JSON object."""
             try:
                 validated = self._validate_response(response_json, file_path)
                 logger.debug(f"Validated response: {validated}")
+            except LLMError:
+                # Re-raise validation errors from _validate_response
+                raise
             except Exception as e:
-                logger.error(f"Response validation failed: {e}")
+                logger.error(f"Unexpected validation error: {e}")
                 logger.error(f"Response JSON: {response_json}")
-                raise LLMError(f"Invalid response format: {e}") from e
+                raise LLMError(f"Response validation failed: {e}") from e
             return RenameSuggestion(
                 suggested_path=validated["suggested_path"],
                 filename=validated["filename"],
                 reasoning=validated["reasoning"]
             )
+        except (LLMError, RateLimitError):
+            # Re-raise specific LLM errors
+            raise
+        except (FileNotFoundError, PermissionError) as e:
+            logger.error(f"File access error during suggestion generation: {e}")
+            raise LLMError(f"Cannot access capture directory: {e}") from e
         except Exception as e:
-            logger.error(f"Failed to generate rename suggestion: {e}")
-            if isinstance(e, LLMError | RateLimitError):
-                raise
+            logger.error(f"Unexpected error generating rename suggestion: {e}")
             raise LLMError(f"Failed to generate rename suggestion: {e}") from e
         finally:
             # Restore original capture dir

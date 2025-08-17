@@ -190,8 +190,10 @@ class UserInterface:
                 subprocess.run(['open', str(path)], check=True)
             elif os.name == 'nt':  # Windows
                 os.startfile(str(path))
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             logger.error(f"Failed to open file: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error opening file: {e}")
 
     def ask_question(self, taxonomy: TaxonomyParser) -> None:
         """Handle user question about taxonomy.
@@ -220,9 +222,21 @@ class UserInterface:
                 self.console.print("[green]Taxonomy updated successfully!")
             else:
                 self.console.print("[yellow]Changes cancelled.")
+        except (ValueError, ConnectionError, TimeoutError) as e:
+            logger.error(f"LLM error processing question: {e}")
+            self.console.print(f"[red]Error communicating with AI: {e}")
+            if click.confirm("\nWould you like to skip this file?", default=True):
+                return
+            raise
+        except (AttributeError, TypeError) as e:
+            logger.error(f"Taxonomy update error: {e}")
+            self.console.print(f"[red]Error updating taxonomy: {e}")
+            if click.confirm("\nWould you like to skip this file?", default=True):
+                return
+            raise
         except Exception as e:
-            logger.error(f"Failed to process question: {e}")
-            self.console.print(f"[red]Error handling question: {e}")
+            logger.error(f"Unexpected error processing question: {e}")
+            self.console.print(f"[red]Unexpected error: {e}")
             if click.confirm("\nWould you like to skip this file?", default=True):
                 return
             raise
@@ -254,9 +268,13 @@ class UserInterface:
             logger.info(f"Moved {file_path} to trash at {target_path}")
             return True
             
+        except (OSError, PermissionError, shutil.Error) as e:
+            logger.error(f"File system error moving to trash: {e}")
+            self.console.print(f"[red]Cannot move file to trash: {e}")
+            return False
         except Exception as e:
-            logger.error(f"Failed to move file to trash: {e}")
-            self.console.print(f"[red]Error moving file to trash: {e}")
+            logger.error(f"Unexpected error moving file to trash: {e}")
+            self.console.print(f"[red]Unexpected error moving to trash: {e}")
             return False
 
     def handle_rename(self, proposal: FileRenameProposal, taxonomy: TaxonomyParser,
@@ -286,8 +304,14 @@ class UserInterface:
                 try:
                     rename_func(proposal.current_path, proposal.new_path)
                     return True
+                except (OSError, PermissionError, shutil.Error) as e:
+                    logger.error(f"File system error during rename: {e}")
+                    self.console.print(f"[red]Cannot rename file: {e}")
+                    if not click.confirm("Try again?", default=True):
+                        return True
                 except Exception as e:
-                    logger.error(f"Failed to rename file: {e}")
+                    logger.error(f"Unexpected error during rename: {e}")
+                    self.console.print(f"[red]Unexpected rename error: {e}")
                     if not click.confirm("Try again?", default=True):
                         return True
             elif cmd == 'v':
@@ -320,9 +344,12 @@ class UserInterface:
                             override_instructions=override
                         )
                         continue
+                    except (ValueError, ConnectionError, TimeoutError) as e:
+                        logger.error(f"LLM error generating override proposal: {e}")
+                        self.console.print(f"[red]AI error with override: {e}")
                     except Exception as e:
-                        logger.error(f"Failed to generate new proposal with override: {e}")
-                        self.console.print(f"[red]Error generating new proposal: {e}")
+                        logger.error(f"Unexpected error generating override proposal: {e}")
+                        self.console.print(f"[red]Unexpected override error: {e}")
             elif cmd == 's':
                 return True
             elif cmd == 't':

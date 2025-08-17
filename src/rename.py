@@ -53,7 +53,11 @@ def extract_date_from_content(content: str) -> datetime | None:
                         return datetime.strptime(date_str, fmt)
                     except ValueError:
                         continue
-            except Exception:
+            except (ValueError, AttributeError, IndexError):
+                # Skip malformed date strings or regex issues
+                continue
+            except Exception as e:
+                logger.debug(f"Unexpected error parsing date pattern: {e}")
                 continue
 
     return None
@@ -83,8 +87,12 @@ def get_document_date(path: Path, content: str) -> tuple[datetime, str]:
     try:
         mod_time = path.stat().st_mtime
         return datetime.fromtimestamp(mod_time), "file"
-    except Exception:
-        pass
+    except (FileNotFoundError, PermissionError):
+        logger.debug(f"Cannot access file modification time for {path}")
+    except (OSError, ValueError) as e:
+        logger.debug(f"Error reading file timestamp for {path}: {e}")
+    except Exception as e:
+        logger.warning(f"Unexpected error getting file modification time: {e}")
 
     # Use current date as last resort
     return datetime.now(), "current"

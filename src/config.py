@@ -150,9 +150,18 @@ def load_config(config_path: Path) -> Config:
         config.validate()
         return config
 
-    except Exception as e:
-        logger.error(f"Failed to load config: {e}")
+    except (FileNotFoundError, PermissionError) as e:
+        logger.error(f"Cannot access config file: {e}")
         raise
+    except yaml.YAMLError as e:
+        logger.error(f"Invalid YAML in config file: {e}")
+        raise ValueError(f"Invalid config file format: {e}") from e
+    except (ValueError, TypeError) as e:
+        logger.error(f"Invalid config values: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error loading config: {e}")
+        raise ValueError(f"Failed to load config: {e}") from e
 
 def create_default_config() -> Config:
     """Create default configuration file.

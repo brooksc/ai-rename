@@ -167,8 +167,21 @@ def cli(
             autoaccept=autoaccept,
         )
 
+    except (FileNotFoundError, PermissionError) as e:
+        logger.error(f"File access error: {e}")
+        if debug:
+            logger.exception("Detailed error information:")
+        sys.exit(1)
+    except ValueError as e:
+        logger.error(f"Configuration error: {e}")
+        if debug:
+            logger.exception("Detailed error information:")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        logger.info("Operation cancelled by user")
+        sys.exit(0)
     except Exception as e:
-        logger.error(f"An error occurred: {e}")
+        logger.error(f"Unexpected error: {e}")
         if debug:
             logger.exception("Detailed error information:")
         sys.exit(1)

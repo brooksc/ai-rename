@@ -51,10 +51,22 @@ def check_gemini(config: Config) -> dict[str, Any]:
             }
         }
 
-    except Exception as e:
+    except (ValueError, ConnectionError, TimeoutError) as e:
         return {
             "status": "error",
-            "message": f"Gemini check failed: {e!s}",
+            "message": f"Gemini connection failed: {e!s}",
+            "config": {
+                "model": config.gemini.model,
+                "temperature": config.gemini.temperature,
+                "timeout": config.gemini.timeout,
+                "api_key_set": bool(config.gemini.api_key)
+            }
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error during Gemini check: {e}")
+        return {
+            "status": "error",
+            "message": f"Unexpected Gemini check error: {e!s}",
             "config": {
                 "model": config.gemini.model,
                 "temperature": config.gemini.temperature,
@@ -88,20 +100,41 @@ def check_gemini(config: Config) -> dict[str, Any]:
                         "message": "Gemini returned empty response for PDF test",
                         "model": config.gemini.model
                     }
-            except Exception as e:
+            except (FileNotFoundError, PermissionError) as e:
                 return {
                     "status": "error",
-                    "message": f"Failed to process test PDF with Gemini: {e}",
+                    "message": f"Cannot access test PDF file: {e}",
+                    "model": config.gemini.model,
+                    "error": str(e)
+                }
+            except (ValueError, ConnectionError, TimeoutError) as e:
+                return {
+                    "status": "error",
+                    "message": f"Gemini API error during PDF test: {e}",
+                    "model": config.gemini.model,
+                    "error": str(e)
+                }
+            except Exception as e:
+                logger.error(f"Unexpected error during PDF test: {e}")
+                return {
+                    "status": "error",
+                    "message": f"Unexpected PDF test failure: {e}",
                     "model": config.gemini.model,
                     "error": str(e)
                 }
             finally:
                 # Clean up test file
                 test_pdf.unlink()
-        except Exception as e:
+        except (OSError, PermissionError) as e:
             return {
                 "status": "error",
-                "message": f"Failed to create test PDF: {e}"
+                "message": f"Cannot create test PDF file: {e}"
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error creating test PDF: {e}")
+            return {
+                "status": "error",
+                "message": f"Unexpected test PDF creation error: {e}"
             }
 
 
@@ -139,17 +172,36 @@ def check_taxonomy(config: Config) -> dict[str, Any]:
                 "rules": len(parser.rules)
             }
 
-        except Exception as e:
+        except (FileNotFoundError, PermissionError) as e:
             return {
                 "status": "error",
-                "message": f"Failed to parse taxonomy file: {e}",
+                "message": f"Cannot access taxonomy file: {e}",
+                "path": str(taxonomy_path)
+            }
+        except (ValueError, TypeError) as e:
+            return {
+                "status": "error",
+                "message": f"Invalid taxonomy file format: {e}",
+                "path": str(taxonomy_path)
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error parsing taxonomy: {e}")
+            return {
+                "status": "error",
+                "message": f"Unexpected taxonomy parsing error: {e}",
                 "path": str(taxonomy_path)
             }
 
-    except Exception as e:
+    except (AttributeError, TypeError) as e:
         return {
             "status": "error",
-            "message": f"Failed to check taxonomy: {e}"
+            "message": f"Invalid taxonomy configuration: {e}"
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error checking taxonomy: {e}")
+        return {
+            "status": "error",
+            "message": f"Unexpected taxonomy check error: {e}"
         }
 
 
@@ -192,10 +244,17 @@ def check_config(config: Config) -> dict[str, Any]:
         # Check backup directory exists or can be created
         try:
             config.taxonomy.backup_dir.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
+        except (OSError, PermissionError) as e:
             return {
                 "status": "error",
                 "message": f"Cannot create taxonomy backup directory: {e}",
+                "path": str(config.taxonomy.backup_dir)
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error creating backup directory: {e}")
+            return {
+                "status": "error",
+                "message": f"Unexpected backup directory error: {e}",
                 "path": str(config.taxonomy.backup_dir)
             }
 
@@ -217,10 +276,16 @@ def check_config(config: Config) -> dict[str, Any]:
             }
         }
 
-    except Exception as e:
+    except (AttributeError, TypeError) as e:
         return {
             "status": "error",
-            "message": f"Failed to validate configuration: {e}"
+            "message": f"Invalid configuration object: {e}"
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error validating configuration: {e}")
+        return {
+            "status": "error",
+            "message": f"Unexpected configuration validation error: {e}"
         }
 
 
@@ -249,10 +314,16 @@ def check_system() -> dict[str, Any]:
             "supported_types": list(SUPPORTED_FILE_TYPES)
         }
 
-    except Exception as e:
+    except (OSError, AttributeError) as e:
         return {
             "status": "error",
-            "message": f"System check failed: {e}"
+            "message": f"System environment error: {e}"
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error during system check: {e}")
+        return {
+            "status": "error",
+            "message": f"Unexpected system check error: {e}"
         }
 
 
@@ -299,5 +370,8 @@ def run_diagnostics(config: Config) -> dict[str, Any]:
 
         return results
 
+    except (KeyError, TypeError, AttributeError) as e:
+        raise DiagnosticsError(f"Invalid diagnostics data structure: {e}") from e
     except Exception as e:
-        raise DiagnosticsError(f"Diagnostics failed: {e}") from e
+        logger.error(f"Unexpected error during diagnostics: {e}")
+        raise DiagnosticsError(f"Unexpected diagnostics failure: {e}") from e
