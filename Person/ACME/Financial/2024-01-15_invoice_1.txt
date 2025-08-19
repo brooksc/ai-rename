@@ -1,0 +1,6 @@
+Invoice from ACME Corp
+Date: 2024-01-15
+Amount: $1,250.00
+Service Period: January 2024
+
+This is a sample invoice for testing purposes.
