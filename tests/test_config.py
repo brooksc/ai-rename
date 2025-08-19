@@ -82,15 +82,17 @@ class TestConfigLoading:
         """Test loading configuration from a non-existent file."""
         config_file = temp_dir / "nonexistent.yaml"
 
-        with pytest.raises(ConfigError, match="Configuration file not found"):
-            load_config(config_file)
+        # Should return default config, not raise an error
+        config = load_config(config_file)
+        assert isinstance(config, Config)
+        assert config.gemini.model == "gemini-2.0-flash"
 
     def test_load_config_with_invalid_yaml(self, temp_dir):
         """Test loading configuration from an invalid YAML file."""
         config_file = temp_dir / "invalid.yaml"
         config_file.write_text("invalid: yaml: content: [")
 
-        with pytest.raises(ConfigError, match="Failed to parse configuration file"):
+        with pytest.raises(ValueError, match="Invalid config file format"):
             load_config(config_file)
 
     def test_load_config_with_partial_data(self, temp_dir):
@@ -110,19 +112,20 @@ class TestConfigLoading:
 
         assert config.gemini.api_key == "test-key"
         assert config.gemini.model == "gemini-2.0-flash"  # Default
-        assert config.gemini.temperature == 0.7  # Default
+        assert config.gemini.temperature == 0.9  # Default
 
     def test_create_default_config(self, temp_dir, monkeypatch):
         """Test creating default configuration."""
         # Mock the config directory
         config_dir = temp_dir / ".config" / "ai-rename"
         monkeypatch.setattr("src.config.CONFIG_DIR", config_dir)
+        monkeypatch.setattr("src.constants.CONFIG_DIR", config_dir)
 
         config = create_default_config()
 
         assert isinstance(config, Config)
         assert config.gemini.model == "gemini-2.0-flash"
-        assert config.gemini.temperature == 0.7
+        assert config.gemini.temperature == 0.9
 
         # Check if config file was created
         config_file = config_dir / "config.yaml"

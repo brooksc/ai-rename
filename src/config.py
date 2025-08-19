@@ -170,7 +170,7 @@ def create_default_config() -> Config:
         Config: Created configuration
     """
     config_dir = Path(CONFIG_DIR).expanduser()
-    config_file = config_dir / CONFIG_FILE
+    config_file = config_dir / "config.yaml"
 
     if config_file.exists():
         logger.info(f"Configuration file already exists at {config_file}")

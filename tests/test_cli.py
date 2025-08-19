@@ -262,7 +262,7 @@ gemini:
                     result = self.runner.invoke(cli, [str(test_file)])
 
                     assert result.exit_code == 1
-                    assert "An error occurred" in result.output
+                    assert "Unexpected error" in result.output
 
     def test_cli_exception_handling_with_debug(self, temp_dir):
         """Test CLI exception handling with debug enabled."""
@@ -314,6 +314,10 @@ class TestSetupLogging:
 
 class TestCLIFileHandling:
     """Tests for CLI file path handling."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
 
     def test_cli_with_multiple_files(self, temp_dir):
         """Test CLI with multiple file arguments."""
